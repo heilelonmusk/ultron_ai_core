@@ -1,14 +1,22 @@
+const Wallet = require("../models/WalletModel");
+
 const checkWallet = async (req, res) => {
+  try {
     const { address } = req.params;
-  
-    // Simuliamo un database di whitelist
-    const whitelist = ["0x1234567890ABCDEF", "0xFEDCBA0987654321"];
-  
-    if (whitelist.includes(address)) {
-      return res.json({ status: "eligible", address });
+    const wallet = await Wallet.findOne({ address });
+
+    if (wallet) {
+      return res.json({ status: wallet.status, address });
     } else {
+      // Se il wallet non è registrato, lo aggiungiamo a "not eligible"
+      const newWallet = new Wallet({ address, status: "not eligible" });
+      await newWallet.save();
       return res.json({ status: "not eligible", address });
     }
-  };
-  
-  module.exports = { checkWallet };
+  } catch (error) {
+    console.error("❌ Error in checkWallet:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { checkWallet };
