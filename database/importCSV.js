@@ -5,9 +5,15 @@ require("dotenv").config();
 const Wallet = require("../api/models/WalletModel");
 
 // Connetti a MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Failed:", err));
+const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) return; // Se è già connesso, evita di ricollegarti
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("✅ MongoDB Connected");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Failed:", err);
+  }
+};
 
 const parseDate = (dateString) => {
   if (!dateString) return new Date(); // Se il valore è vuoto, usa la data corrente
@@ -17,6 +23,8 @@ const parseDate = (dateString) => {
 
 // Funzione per importare CSV
 const importCSV = async (filePath, status) => {
+  await connectDB(); // Assicura che la connessione sia attiva
+
   return new Promise((resolve, reject) => {
     const wallets = [];
 
@@ -31,20 +39,24 @@ const importCSV = async (filePath, status) => {
         const timestamp = parseDate(row.importedAt);
 
         // Controlla se l'indirizzo esiste già
-        const existingWallet = await Wallet.findOne({ address: row.address.trim() });
+        try {
+          const existingWallet = await Wallet.findOne({ address: row.address.trim() });
 
-        if (existingWallet) {
-          // Se esiste, aggiorna solo il timestamp
-          existingWallet.importedAt = timestamp;
-          await existingWallet.save();
-          console.log(`🔄 Updated: ${row.address}`);
-        } else {
-          // Se non esiste, lo inseriamo
-          wallets.push({
-            address: row.address.trim(),
-            status,
-            importedAt: timestamp
-          });
+          if (existingWallet) {
+            // Se esiste, aggiorna solo il timestamp
+            existingWallet.importedAt = timestamp;
+            await existingWallet.save();
+            console.log(`🔄 Updated: ${row.address}`);
+          } else {
+            // Se non esiste, lo inseriamo
+            wallets.push({
+              address: row.address.trim(),
+              status,
+              importedAt: timestamp
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Database Error: ${error.message}`);
         }
       })
       .on("end", async () => {
@@ -57,9 +69,6 @@ const importCSV = async (filePath, status) => {
         } catch (error) {
           console.error(`❌ Error inserting wallets: ${error.message}`);
           reject(error);
-        } finally {
-          mongoose.connection.close();
-          console.log("✅ MongoDB Connection Closed");
         }
       });
   });
@@ -72,5 +81,8 @@ const importCSV = async (filePath, status) => {
     await importCSV("database/non_eligible.csv", "not eligible");
   } catch (error) {
     console.error("❌ Import process failed:", error);
+  } finally {
+    mongoose.connection.close();
+    console.log("✅ MongoDB Connection Closed");
   }
 })();
