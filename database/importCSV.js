@@ -9,37 +9,68 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.error("❌ MongoDB Connection Failed:", err));
 
+const parseDate = (dateString) => {
+  if (!dateString) return new Date(); // Se il valore è vuoto, usa la data corrente
+  const parsedDate = new Date(dateString);
+  return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+};
+
 // Funzione per importare CSV
-const importCSV = (filePath, status) => {
-  fs.createReadStream(filePath)
-    .pipe(csvParser({ headers: ["address", "importedAt"] })) // Legge anche il timestamp se presente
-    .on("data", async (row) => {
-      try {
-        if (!row.address) {
-          console.error(`❌ Skipped row with missing address:`, row);
+const importCSV = async (filePath, status) => {
+  return new Promise((resolve, reject) => {
+    const wallets = [];
+
+    fs.createReadStream(filePath)
+      .pipe(csvParser({ headers: ["address", "importedAt"] })) // Legge anche il timestamp
+      .on("data", async (row) => {
+        if (!row.address || !row.address.startsWith("dym1")) {
+          console.error(`❌ Skipped invalid address: ${row.address}`);
           return;
         }
 
-        const timestamp = row.importedAt ? new Date(row.importedAt) : Date.now();
+        const timestamp = parseDate(row.importedAt);
 
-        const wallet = new Wallet({
-          address: row.address.trim(),
-          status,
-          importedAt: timestamp
-        });
+        // Controlla se l'indirizzo esiste già
+        const existingWallet = await Wallet.findOne({ address: row.address.trim() });
 
-        await wallet.save();
-        console.log(`✅ Inserted: ${row.address} at ${timestamp}`);
-      } catch (error) {
-        console.error(`❌ Error inserting ${row.address}: ${error.message}`);
-      }
-    })
-    .on("end", () => {
-      console.log(`✅ Import completed for ${filePath}`);
-      mongoose.connection.close();
-    });
+        if (existingWallet) {
+          // Se esiste, aggiorna solo il timestamp
+          existingWallet.importedAt = timestamp;
+          await existingWallet.save();
+          console.log(`🔄 Updated: ${row.address}`);
+        } else {
+          // Se non esiste, lo inseriamo
+          wallets.push({
+            address: row.address.trim(),
+            status,
+            importedAt: timestamp
+          });
+        }
+      })
+      .on("end", async () => {
+        try {
+          if (wallets.length > 0) {
+            await Wallet.insertMany(wallets, { ordered: false });
+            console.log(`✅ Imported ${wallets.length} new addresses`);
+          }
+          resolve();
+        } catch (error) {
+          console.error(`❌ Error inserting wallets: ${error.message}`);
+          reject(error);
+        } finally {
+          mongoose.connection.close();
+          console.log("✅ MongoDB Connection Closed");
+        }
+      });
+  });
 };
 
 // Esegui l'importazione dei due file CSV
-importCSV("database/whitelist.csv", "eligible");
-importCSV("database/non_eligible.csv", "not eligible");
+(async () => {
+  try {
+    await importCSV("database/whitelist.csv", "eligible");
+    await importCSV("database/non_eligible.csv", "not eligible");
+  } catch (error) {
+    console.error("❌ Import process failed:", error);
+  }
+})();
