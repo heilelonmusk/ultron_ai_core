@@ -4,19 +4,21 @@ const csvParser = require("csv-parser");
 require("dotenv").config();
 const Wallet = require("../api/models/WalletModel");
 
-// Connetti a MongoDB
+// Funzione per connettersi a MongoDB
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) return; // Se è già connesso, evita di ricollegarti
+  if (mongoose.connection.readyState === 1) return; // Se è già connesso, non riconnetterti
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log("✅ MongoDB Connected");
   } catch (err) {
     console.error("❌ MongoDB Connection Failed:", err);
+    process.exit(1); // Termina il processo se non può connettersi
   }
 };
 
+// Funzione per verificare il formato della data
 const parseDate = (dateString) => {
-  if (!dateString) return new Date(); // Se il valore è vuoto, usa la data corrente
+  if (!dateString) return new Date();
   const parsedDate = new Date(dateString);
   return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 };
@@ -25,49 +27,36 @@ const parseDate = (dateString) => {
 const importCSV = async (filePath, status) => {
   await connectDB(); // Assicura che la connessione sia attiva
 
-  return new Promise((resolve, reject) => {
-    const wallets = [];
+  const wallets = [];
 
+  return new Promise((resolve, reject) => {
     fs.createReadStream(filePath)
-      .pipe(csvParser({ headers: ["address", "importedAt"] })) // Legge anche il timestamp
-      .on("data", async (row) => {
+      .pipe(csvParser({ headers: ["address", "importedAt"] }))
+      .on("data", (row) => {
         if (!row.address || !row.address.startsWith("dym1")) {
           console.error(`❌ Skipped invalid address: ${row.address}`);
           return;
         }
 
-        const timestamp = parseDate(row.importedAt);
-
-        // Controlla se l'indirizzo esiste già
-        try {
-          const existingWallet = await Wallet.findOne({ address: row.address.trim() });
-
-          if (existingWallet) {
-            // Se esiste, aggiorna solo il timestamp
-            existingWallet.importedAt = timestamp;
-            await existingWallet.save();
-            console.log(`🔄 Updated: ${row.address}`);
-          } else {
-            // Se non esiste, lo inseriamo
-            wallets.push({
-              address: row.address.trim(),
-              status,
-              importedAt: timestamp
-            });
-          }
-        } catch (error) {
-          console.error(`❌ Database Error: ${error.message}`);
-        }
+        wallets.push({
+          address: row.address.trim(),
+          status,
+          importedAt: parseDate(row.importedAt),
+        });
       })
       .on("end", async () => {
         try {
-          if (wallets.length > 0) {
-            await Wallet.insertMany(wallets, { ordered: false });
-            console.log(`✅ Imported ${wallets.length} new addresses`);
+          for (let wallet of wallets) {
+            await Wallet.updateOne(
+              { address: wallet.address },
+              { $set: { status: wallet.status, importedAt: wallet.importedAt } },
+              { upsert: true } // Se non esiste, lo crea
+            );
+            console.log(`✅ Processed: ${wallet.address}`);
           }
           resolve();
         } catch (error) {
-          console.error(`❌ Error inserting wallets: ${error.message}`);
+          console.error(`❌ Database Error: ${error.message}`);
           reject(error);
         }
       });
