@@ -1,8 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const winston = require("winston");
-const walletRoutes = require("../api/routes/walletRoutes");
-const knowledgeRoutes = require("../api/routes/knowledgeRoutes");
+const walletRoutes = require("../../api/routes/walletRoutes");
+const knowledgeRoutes = require("../../api/routes/knowledgeRoutes");
 
 const app = express();
 app.use(express.json());

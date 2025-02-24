@@ -1,13 +1,13 @@
 const mongoose = require("mongoose");
 const request = require("supertest");
 const Wallet = require("../api/models/WalletModel");
-const { getTestServer } = require("./testServer");
+const { startTestServer, closeTestServer } = require("./utils/testServer");
 
 let server, app;
 
 describe("API /wallet/check", () => {
   beforeAll(async () => {
-    ({ server, app } = await getTestServer());
+    ({ server, app } = await startTestServer());
   });
 
   afterAll(async () => {
