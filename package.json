@@ -18,7 +18,8 @@
     "express": "^4.21.2",
     "get-port": "^7.1.0",
     "mongodb": "^6.13.1",
-    "mongoose": "^8.10.1"
+    "mongoose": "^8.10.1",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",
