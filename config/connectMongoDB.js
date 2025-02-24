@@ -8,6 +8,8 @@ const connectDB = async () => {
     await mongoose.connect(process.env.MONGO_URI, {
       dbName: "heilelonDB",
       serverSelectionTimeoutMS: 30000, // ⏳ Timeout più lungo per stabilità
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
 
     console.log("✅ MongoDB Connected to:", mongoose.connection.name);

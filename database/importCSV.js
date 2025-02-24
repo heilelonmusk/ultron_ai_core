@@ -9,7 +9,6 @@ const importCSV = async (filePath, status) => {
   await connectDB();
 
   const wallets = new Map();
-  let totalAddresses = 0;
 
   return new Promise((resolve, reject) => {
     fs.createReadStream(filePath)
@@ -19,27 +18,18 @@ const importCSV = async (filePath, status) => {
           console.warn(`⚠️ Skipped invalid address: ${row.address}`);
           return;
         }
-        totalAddresses++;
+
+        const importedAt = row.importedAt ? new Date(row.importedAt) : new Date();
+
         wallets.set(row.address.trim(), {
           status,
-          importedAt: row.importedAt ? new Date(row.importedAt) : new Date(),
+          importedAt,
         });
       })
       .on("end", async () => {
         try {
-          console.log(`📊 Found ${totalAddresses} addresses in ${filePath}.`);
-          
           const bulkOps = [];
           for (const [address, data] of wallets) {
-            const existingWallet = await Wallet.findOne({ address });
-
-            if (existingWallet) {
-              if (existingWallet.status === "not eligible" && status === "not eligible") {
-                console.log(`⚠️ Skipping already 'not eligible' address: ${address}`);
-                continue;
-              }
-            }
-
             bulkOps.push({
               updateOne: {
                 filter: { address },
@@ -48,7 +38,7 @@ const importCSV = async (filePath, status) => {
                     status: data.status,
                     importedAt: data.importedAt,
                   },
-                  $setOnInsert: { checkedAt: null }, // ❗ Non sovrascrive `checkedAt`
+                  $setOnInsert: { checkedAt: null }, // Non sovrascrive checkedAt se già esiste
                 },
                 upsert: true,
               },
@@ -60,8 +50,12 @@ const importCSV = async (filePath, status) => {
             await Wallet.bulkWrite(bulkOps);
             console.log("✅ Database updated successfully.");
           } else {
-            console.log("⚠️ No new valid addresses to import from", filePath);
+            console.log("⚠️ No valid addresses found in file.");
           }
+
+          // **🔄 Attendi che MongoDB aggiorni i dati prima di chiudere**
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
           resolve();
         } catch (error) {
           console.error(`❌ Database Error: ${error.message}`);
@@ -75,36 +69,6 @@ const importCSV = async (filePath, status) => {
   });
 };
 
-// ✅ API per verificare un wallet e aggiornare `checkedAt`
-const express = require("express");
-const router = express.Router();
-
-router.get("/check/:address", async (req, res) => {
-  try {
-    const { address } = req.params;
-    let wallet = await Wallet.findOne({ address });
-
-    if (wallet) {
-      wallet.checkedAt = new Date();
-      await wallet.save();
-      return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
-    } else {
-      const newWallet = new Wallet({
-        address,
-        status: "not eligible",
-        checkedAt: new Date(),
-      });
-      await newWallet.save();
-      return res.json({ status: "not eligible", address, checkedAt: newWallet.checkedAt });
-    }
-  } catch (error) {
-    console.error("❌ Error in checkWallet:", error);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
-
-module.exports = router;
-
 // **🔄 Esegui l'importazione e sincronizzazione con MongoDB**
 (async () => {
   try {
@@ -117,11 +81,14 @@ module.exports = router;
 
     await importCSV("database/non_eligible.csv", "not eligible");
 
+    const notEligibleCount = await Wallet.countDocuments({ status: "not eligible" });
+    console.log(`📊 Total not eligible addresses in MongoDB: ${notEligibleCount}`);
+
     console.log("✅ Data synchronization completed.");
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    mongoose.connection.close()
+    await mongoose.connection.close()
       .then(() => {
         console.log("✅ MongoDB Connection Closed");
         process.exit(0);
