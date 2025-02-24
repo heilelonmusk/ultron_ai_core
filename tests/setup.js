@@ -1,7 +1,13 @@
-// tests/setup.js
+const connectDB = require("../config/connectMongoDB");
 const mongoose = require("mongoose");
-require("dotenv").config();
+const { app } = require("../server");
 
-module.exports = async () => {
-  await mongoose.connect(process.env.MONGO_URI, { dbName: "heilelonDB" });
-};
+beforeAll(async () => {
+  await connectDB();
+  global.testServer = app.listen(6001, () => console.log("🚀 Test Server running on port 6001"));
+});
+
+afterAll(async () => {
+  await mongoose.connection.close();
+  global.testServer.close();
+});

@@ -3,22 +3,8 @@ const mongoose = require("mongoose");
 const csvParser = require("csv-parser");
 require("dotenv").config();
 const Wallet = require("../api/models/WalletModel");
+const connectDB = require("../config/connectMongoDB");
 
-// Connessione a MongoDB
-const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) return;
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      dbName: "heilelonDB",
-    });
-    console.log("✅ MongoDB Connected");
-  } catch (err) {
-    console.error("❌ MongoDB Connection Failed:", err.message);
-    process.exit(1);
-  }
-};
-
-// Funzione per importare CSV e aggiornare database
 const importCSV = async (filePath, status) => {
   await connectDB();
 
@@ -40,7 +26,6 @@ const importCSV = async (filePath, status) => {
       .on("end", async () => {
         try {
           const bulkOps = [];
-
           for (const [address, data] of wallets) {
             bulkOps.push({
               updateOne: {
@@ -50,7 +35,7 @@ const importCSV = async (filePath, status) => {
                     status: data.status,
                     importedAt: data.importedAt,
                   },
-                  $setOnInsert: { checkedAt: null }, // ❗ Non sovrascrive checkedAt
+                  $setOnInsert: { checkedAt: null }, // ❗ Non sovrascrive `checkedAt`
                 },
                 upsert: true,
               },
@@ -64,7 +49,6 @@ const importCSV = async (filePath, status) => {
           } else {
             console.log("⚠️ No valid addresses found in file.");
           }
-
           resolve();
         } catch (error) {
           console.error(`❌ Database Error: ${error.message}`);
@@ -88,12 +72,10 @@ router.get("/check/:address", async (req, res) => {
     let wallet = await Wallet.findOne({ address });
 
     if (wallet) {
-      // 🔹 Aggiorna solo `checkedAt` via API
       wallet.checkedAt = new Date();
       await wallet.save();
       return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
     } else {
-      // 🔹 Se non esiste, lo inseriamo come "not eligible"
       const newWallet = new Wallet({
         address,
         status: "not eligible",
