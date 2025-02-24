@@ -1,23 +1,21 @@
-const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const getPort = require("get-port"); // 📌 Importazione corretta per CommonJS
+const express = require("express");
+const mongoose = require("mongoose");
 const connectDB = require("../../config/connectMongoDB");
 
-async function getTestServer() {
-  await connectDB();
+// 📌 Workaround per importare get-port in CommonJS
+const getPort = require("get-port");
 
+async function getTestServer() {
   const app = express();
+  const port = await getPort(); // 📌 Ottiene una porta libera
+
   app.use(cors());
   app.use(bodyParser.json());
 
-  // 📌 Importazione delle route di test
-  const walletRoutes = require("../../api/routes/walletRoutes");
-  const knowledgeRoutes = require("../../api/routes/knowledgeRoutes");
-  app.use("/api/wallet", walletRoutes);
-  app.use("/api/knowledge", knowledgeRoutes);
+  await connectDB();
 
-  const port = await getPort(); // 📌 Trova una porta libera
   const server = app.listen(port, () => {
     console.log(`🚀 Test Server running on port ${port}`);
   });

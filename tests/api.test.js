@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const request = require("supertest");
 const Wallet = require("../api/models/WalletModel");
-const { getTestServer } = require("./testServer");
+const { getTestServer } = require("./utils/testServer");
 
 let server, app;
 

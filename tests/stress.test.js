@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const request = require("supertest");
-const { getTestServer } = require("./testServer");
+const { getTestServer } = require("./utils/testServer");
 
 let server, app;
 

@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Wallet = require("../api/models/WalletModel");
 const { importCSV } = require("../database/importCSV");
 const path = require("path");
-const { getTestServer } = require("./testServer");
+const { getTestServer } = require("./utils/testServer");
 
 let server;
 

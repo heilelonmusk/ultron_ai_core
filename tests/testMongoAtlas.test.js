@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { getTestServer } = require("./testServer");
+const { getTestServer } = require("./utils/testServer");
 
 let server;
 
