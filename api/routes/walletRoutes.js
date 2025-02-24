@@ -4,6 +4,18 @@ const fs = require("fs");
 const csvParser = require("csv-parser");
 const router = express.Router();
 
+// 🔐 Endpoint protetto
+router.post("/protected-route", async (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || authHeader !== "valid_token") {
+      console.error("❌ Unauthorized access attempt");
+      return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  return res.status(200).json({ message: "Access granted" });
+});
+
 const WHITELIST_FILE = "database/whitelist.csv";
 
 // ✅ Funzione per validare gli indirizzi Cosmos (Dymension)
@@ -19,10 +31,10 @@ const isInWhitelist = async (address) => {
   return new Promise((resolve) => {
     let found = false;
     fs.createReadStream(WHITELIST_FILE)
-      .pipe(csvParser({ headers: false, skipLines: 0 })) // Ignora intestazioni e righe vuote
+      .pipe(csvParser({ headers: false, skipLines: 0 }))
       .on("data", (row) => {
-        const walletAddress = Object.values(row)[0]?.trim(); // Estrai il primo valore della riga
-        if (walletAddress === address) {
+        const walletAddress = Object.values(row).map(v => v.trim()).find(v => v.startsWith("dym"));
+        if (walletAddress && walletAddress === address) {
           found = true;
         }
       })
@@ -32,7 +44,7 @@ const isInWhitelist = async (address) => {
       })
       .on("error", (err) => {
         console.error("❌ Error reading whitelist file:", err);
-        resolve(false); // In caso di errore, consideriamo l'indirizzo come "non idoneo"
+        resolve(false);
       });
   });
 };
@@ -43,6 +55,12 @@ router.get("/check/:address", async (req, res) => {
     console.log("🔍 Request received:", req.params);
 
     const { address } = req.params;
+
+    // **🛑 Controllo sulla lunghezza massima dell'indirizzo**
+    if (address.length > 255) {
+      console.error("❌ Wallet address too long:", address);
+      return res.status(400).json({ error: "Invalid address format" });
+    }
 
     // **🔍 Verifica se l'indirizzo è valido**
     if (!isValidAddress(address)) {
@@ -67,8 +85,8 @@ router.get("/check/:address", async (req, res) => {
     return res.json({ status: wallet.status, address: wallet.address, checkedAt: wallet.checkedAt });
 
   } catch (error) {
-    console.error("❌ Error in checkWallet:", error);
-    return res.status(500).json({ error: "Server error" });
+    console.error("❌ Error checking wallet address:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -78,8 +96,8 @@ router.get("/all", async (req, res) => {
     const wallets = await Wallet.find({});
     return res.json(wallets);
   } catch (error) {
-    console.error("❌ Error fetching wallets:", error);
-    return res.status(500).json({ error: "Server error" });
+    console.error("❌ Error checking wallet address:", error.message || error);
+    return res.status(500).json({ error: "Database error" });
   }
 });
 

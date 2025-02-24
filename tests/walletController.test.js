@@ -77,7 +77,7 @@ describe("🛠️ API /wallet Controller", () => {
 
         const res = await request(app).get(`/api/wallet/check/${TEST_WALLET_ELIGIBLE}`);
         expect(res.status).toBe(500);
-        expect(res.body.error).toBe("Server error");
+        expect(res.body.error).toBe("Internal server error");
 
         Wallet.findOneAndUpdate.mockRestore();
     }, 30000);
