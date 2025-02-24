@@ -5,6 +5,9 @@ const knowledgeBase = {
   
   const getKnowledge = async (req, res) => {
     const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: "Missing query parameter" });
+    }
     const response = knowledgeBase[q.toUpperCase()] || "No information available.";
     res.json({ query: q, response });
   };

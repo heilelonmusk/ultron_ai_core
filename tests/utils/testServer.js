@@ -13,8 +13,8 @@ let server;
 
 async function startTestServer() {
   return new Promise((resolve) => {
-    server = app.listen(5001, () => {
-      console.log("🚀 Test Server running on port 5001");
+    server = app.listen(0, () => {
+      console.log(`🚀 Test Server running on port ${server.address().port}`);
       resolve({ app, server });
     });
   });

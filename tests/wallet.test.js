@@ -12,23 +12,13 @@ describe("API /wallet/check", () => {
   
   beforeAll(async () => {
     console.log("🔄 Adding test wallet to whitelist...");
-    
-    // Assicura che il file esista e scrive il test wallet in una nuova linea
+  
     if (!fs.existsSync(WHITELIST_FILE)) {
-      fs.writeFileSync(WHITELIST_FILE, `${TEST_WALLET}\n`, { flag: "w" });
+      fs.writeFileSync(WHITELIST_FILE, `${TEST_WALLET}\n`);
     } else {
-      let data = fs.readFileSync(WHITELIST_FILE, "utf8").trim().split("\n");
-
-      // Evita duplicati, aggiunge solo se non esiste
-      if (!data.includes(TEST_WALLET)) {
-        fs.appendFileSync(WHITELIST_FILE, `\n${TEST_WALLET}`);
-      }
+      fs.appendFileSync(WHITELIST_FILE, `\n${TEST_WALLET}`);
     }
-
-    // 🔄 Attendi che il file system processi la scrittura
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Avvia il server di test
+  
     ({ server, app } = await startTestServer());
   });
 

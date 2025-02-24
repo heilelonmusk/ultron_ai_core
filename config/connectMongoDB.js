@@ -32,6 +32,7 @@ async function connectDB(retries = MAX_RETRIES) {
       serverSelectionTimeoutMS: 10000, // Timeout per la selezione del server
       socketTimeoutMS: 45000, // Timeout connessione socket
       maxPoolSize: 10, // Limita il numero di connessioni simultanee
+      connectTimeoutMS: 30000, // Aumenta il timeout
     });
     logger.info(`✅ Connected to MongoDB Atlas at ${mongoURI}`);
   } catch (error) {
