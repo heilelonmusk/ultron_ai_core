@@ -6,7 +6,7 @@ const router = express.Router();
 
 const WHITELIST_FILE = "database/whitelist.csv";
 
-// Funzione per verificare se un wallet è nella whitelist
+// ✅ Funzione per verificare se un wallet è nella whitelist
 const isInWhitelist = async (address) => {
   return new Promise((resolve) => {
     let found = false;
@@ -27,19 +27,18 @@ const isInWhitelist = async (address) => {
 router.get("/check/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    const eligible = await isInWhitelist(address);
     let wallet = await Wallet.findOne({ address });
 
-    const eligible = await isInWhitelist(address);
-
     if (wallet) {
-      wallet.checkedAt = new Date();
+      wallet.checkedAt = new Date(); // Aggiorna solo se l'utente fa una verifica API
       if (eligible && wallet.status !== "eligible") {
-        wallet.status = "eligible"; // Aggiorna stato
+        wallet.status = "eligible"; // Aggiorna a "eligible" se ora è nella whitelist
       }
       await wallet.save();
       return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
     } else {
-      // Se non esiste, lo aggiungiamo come "not eligible"
+      // 🔹 Se il wallet non esiste, lo aggiungiamo con lo stato corretto
       const newWallet = new Wallet({
         address,
         status: eligible ? "eligible" : "not eligible",
