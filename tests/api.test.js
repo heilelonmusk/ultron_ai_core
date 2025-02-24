@@ -11,23 +11,37 @@ describe("API /wallet/check", () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
     if (server) {
       await new Promise((resolve) => server.close(resolve));
       console.log("✅ Test Server closed.");
     }
+    await mongoose.connection.close();
+  });
+
+  beforeEach(async () => {
+    // 🔹 Pulisce la collezione Wallet prima di ogni test
+    await Wallet.deleteMany({});
   });
 
   test("Should return 'not eligible' for unknown wallet", async () => {
-    const res = await request(app).get("/api/wallet/check/dym123456789");
+    const uniqueAddress = `dym${Math.floor(Math.random() * 100000)}`; // 🔹 Evita duplicati
+
+    const res = await request(app).get(`/api/wallet/check/${uniqueAddress}`);
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("not eligible");
   });
 
   test("Should update existing eligible wallet", async () => {
-    await Wallet.create({ address: "dym123456789", status: "eligible" });
+    const walletData = { address: "dym123456789", status: "eligible" };
 
-    const res = await request(app).get("/api/wallet/check/dym123456789");
+    // 🔹 Usa upsert per evitare duplicati
+    await Wallet.updateOne(
+      { address: walletData.address },
+      { $set: walletData },
+      { upsert: true }
+    );
+
+    const res = await request(app).get(`/api/wallet/check/${walletData.address}`);
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("eligible");
   });

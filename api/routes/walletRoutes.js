@@ -50,6 +50,11 @@ router.get("/check/:address", async (req, res) => {
       // Se è nella whitelist e lo stato non è aggiornato, aggiorniamolo
       if (eligible && wallet.status !== "eligible") {
         wallet.status = "eligible";
+        wallet.checkedAt = new Date();
+        await wallet.save();
+        console.log(`🔄 Wallet updated: ${wallet.address}, new status: ${wallet.status}`);
+      } else {
+        console.log(`✅ Wallet already up-to-date: ${wallet.address}, status: ${wallet.status}`);
       }
 
       // Aggiorniamo il timestamp della verifica
