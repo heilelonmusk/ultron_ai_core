@@ -72,42 +72,44 @@ const importCSV = async (filePath, status) => {
     });
   } catch (error) {
     console.error("❌ Error importing CSV:", error.message);
-  } finally {
-    await disconnectMongoDB();
-    console.log("✅ MongoDB Connection Closed");
   }
 };
 
-// **🔄 Esegui l'importazione e sincronizzazione con MongoDB**
-(async () => {
-  try {
-    console.log("🚀 Starting import...");
+// **✅ Esporta `importCSV` per essere utilizzato nei test**
+module.exports = { importCSV };
 
-    const whitelistPath = path.join(__dirname, "whitelist.csv");
-    const nonEligiblePath = path.join(__dirname, "non_eligible.csv");
-
-    if (!fs.existsSync(whitelistPath) || !fs.existsSync(nonEligiblePath)) {
-      throw new Error("❌ CSV files not found. Ensure whitelist.csv and non_eligible.csv exist.");
-    }
-
-    await importCSV(whitelistPath, "eligible");
-    await importCSV(nonEligiblePath, "not eligible");
-
-    // 🔍 Conta gli indirizzi DOPO l'importazione
-    const totalCount = await Wallet.countDocuments();
-    console.log(`📊 Total wallets in MongoDB: ${totalCount}`);
-
-    console.log("✅ Data synchronization completed.");
-  } catch (error) {
-    console.error("❌ Import process failed:", error.message);
-  } finally {
+// **✅ Esegui l'importazione solo se il file viene eseguito direttamente**
+if (require.main === module) {
+  (async () => {
     try {
-      await disconnectMongoDB();
-      console.log("✅ MongoDB Connection Closed");
-      if (process.env.NODE_ENV !== "test") process.exit(0); // 🔄 Evita di chiudere Jest nei test
-    } catch (err) {
-      console.error("❌ Error closing MongoDB connection:", err.message);
-      process.exit(1);
+      console.log("🚀 Starting import...");
+
+      const whitelistPath = path.join(__dirname, "whitelist.csv");
+      const nonEligiblePath = path.join(__dirname, "non_eligible.csv");
+
+      if (!fs.existsSync(whitelistPath) || !fs.existsSync(nonEligiblePath)) {
+        throw new Error("❌ CSV files not found. Ensure whitelist.csv and non_eligible.csv exist.");
+      }
+
+      await importCSV(whitelistPath, "eligible");
+      await importCSV(nonEligiblePath, "not eligible");
+
+      // 🔍 Conta gli indirizzi DOPO l'importazione
+      const totalCount = await Wallet.countDocuments();
+      console.log(`📊 Total wallets in MongoDB: ${totalCount}`);
+
+      console.log("✅ Data synchronization completed.");
+    } catch (error) {
+      console.error("❌ Import process failed:", error.message);
+    } finally {
+      try {
+        await disconnectMongoDB();
+        console.log("✅ MongoDB Connection Closed");
+        if (process.env.NODE_ENV !== "test") process.exit(0); // 🔄 Evita di chiudere Jest nei test
+      } catch (err) {
+        console.error("❌ Error closing MongoDB connection:", err.message);
+        process.exit(1);
+      }
     }
-  }
-})();
+  })();
+}

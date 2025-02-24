@@ -4,7 +4,7 @@ require("dotenv").config();
 
 const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fallback_db"; 
 const MAX_RETRIES = 5;
-const RETRY_INTERVAL = 5000;
+const RETRY_INTERVAL = 30000;
 
 // Logger setup
 const logger = winston.createLogger({
@@ -34,7 +34,7 @@ async function connectMongoDB(retries = MAX_RETRIES) {
     logger.info("🔄 Connecting to MongoDB Atlas...");
     await mongoose.connect(mongoURI, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000, 
+      serverSelectionTimeoutMS: 30000, 
       socketTimeoutMS: 45000,
       connectTimeoutMS: 30000,
     });
