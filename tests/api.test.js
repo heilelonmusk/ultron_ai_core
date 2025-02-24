@@ -1,10 +1,11 @@
+// tests/api.test.js
 const request = require("supertest");
-const app = require("../server"); // Importiamo il server Express
+const app = require("../server");
 const Wallet = require("../api/models/WalletModel");
 
 describe("API /wallet/check", () => {
   beforeEach(async () => {
-    await Wallet.deleteMany(); // Puliamo il DB prima di ogni test
+    await Wallet.deleteMany();
   });
 
   test("Should return 'not eligible' for unknown wallet", async () => {
