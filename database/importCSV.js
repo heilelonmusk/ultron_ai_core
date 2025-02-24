@@ -8,6 +8,12 @@ const connectDB = require("../config/connectMongoDB");
 const importCSV = async (filePath, status) => {
   await connectDB();
 
+  console.log(`🚀 Importing ${filePath} as '${status}'`);
+
+  // 🔍 Conta gli indirizzi PRIMA dell'importazione
+  const countBefore = await Wallet.countDocuments({});
+  console.log(`📊 Wallets in DB before import: ${countBefore}`);
+
   const wallets = new Map();
 
   return new Promise((resolve, reject) => {
@@ -52,7 +58,6 @@ const importCSV = async (filePath, status) => {
           console.log(`🔍 Syncing ${bulkOps.length} addresses to MongoDB...`);
           await Wallet.bulkWrite(bulkOps);
           console.log("✅ Database updated successfully.");
-
           resolve();
         } catch (error) {
           console.error(`❌ Database Error: ${error.message}`);
@@ -70,9 +75,11 @@ const importCSV = async (filePath, status) => {
 (async () => {
   try {
     console.log("🚀 Starting import...");
+
     await importCSV("database/whitelist.csv", "eligible");
     await importCSV("database/non_eligible.csv", "not eligible");
 
+    // 🔍 Conta gli indirizzi DOPO l'importazione
     const totalCount = await Wallet.countDocuments();
     console.log(`📊 Total wallets in MongoDB: ${totalCount}`);
 

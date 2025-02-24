@@ -13,7 +13,7 @@ const isInWhitelist = async (address) => {
     fs.createReadStream(WHITELIST_FILE)
       .pipe(csvParser())
       .on("data", (row) => {
-        if (row.address && row.address.trim().toLowerCase() === address.trim().toLowerCase()) {
+        if (row.address && row.address.trim() === address.trim()) {
           found = true;
         }
       })
@@ -23,23 +23,33 @@ const isInWhitelist = async (address) => {
   });
 };
 
+// ✅ API per controllare un wallet
 router.get("/check/:address", async (req, res) => {
   try {
+    console.log("🔍 Request received:", req.params); // Debugging
+
+    // Assicuriamoci che `address` sia presente e sia una stringa
     const { address } = req.params;
-    const normalizedAddress = address.trim().toLowerCase(); // 🔹 Normalizziamo l'input
-    console.log(`🔍 Checking address: ${normalizedAddress}`);
+
+    if (!address || typeof address !== "string") {
+      console.error("❌ Invalid address format:", address);
+      return res.status(400).json({ error: "Invalid address format" });
+    }
+
+    const trimmedAddress = address.trim();
+    console.log(`🔍 Checking address: ${trimmedAddress}`);
 
     // Controlliamo se l'indirizzo è nella whitelist
-    const eligible = await isInWhitelist(normalizedAddress);
+    const eligible = await isInWhitelist(trimmedAddress);
     console.log(`📌 Eligible in whitelist: ${eligible}`);
 
     // Cerchiamo il wallet nel database
-    let wallet = await Wallet.findOne({ address: normalizedAddress });
+    let wallet = await Wallet.findOne({ address: trimmedAddress });
 
     if (wallet) {
       console.log(`✅ Wallet found in DB: ${wallet.address}, status: ${wallet.status}`);
 
-      // Se è nella whitelist e non è aggiornato, aggiorniamolo
+      // Se è nella whitelist e lo stato non è aggiornato, aggiorniamolo
       if (eligible && wallet.status !== "eligible") {
         wallet.status = "eligible";
       }
@@ -55,7 +65,7 @@ router.get("/check/:address", async (req, res) => {
 
       // Se il wallet non esiste, lo creiamo con lo stato corretto
       const newWallet = new Wallet({
-        address: normalizedAddress,
+        address: trimmedAddress,
         status: eligible ? "eligible" : "not eligible",
         checkedAt: new Date(),
       });
@@ -71,6 +81,7 @@ router.get("/check/:address", async (req, res) => {
   }
 });
 
+// ✅ API per ottenere tutti i wallet nel database
 router.get("/all", async (req, res) => {
   try {
     const wallets = await Wallet.find({});
