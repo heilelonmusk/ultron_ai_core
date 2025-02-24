@@ -20,14 +20,18 @@ const importCSV = async (filePath, status) => {
         }
 
         const importedAt = row.importedAt ? new Date(row.importedAt) : new Date();
-
-        wallets.set(row.address.trim(), {
-          status,
-          importedAt,
-        });
+        wallets.set(row.address.trim(), { status, importedAt });
       })
       .on("end", async () => {
+        console.log(`📊 Found ${wallets.size} addresses in ${filePath}`);
+
         try {
+          if (wallets.size === 0) {
+            console.log("⚠️ No valid addresses found.");
+            resolve();
+            return;
+          }
+
           const bulkOps = [];
           for (const [address, data] of wallets) {
             bulkOps.push({
@@ -38,23 +42,16 @@ const importCSV = async (filePath, status) => {
                     status: data.status,
                     importedAt: data.importedAt,
                   },
-                  $setOnInsert: { checkedAt: null }, // Non sovrascrive checkedAt se già esiste
+                  $setOnInsert: { checkedAt: null },
                 },
                 upsert: true,
               },
             });
           }
 
-          if (bulkOps.length > 0) {
-            console.log(`🔍 Syncing ${bulkOps.length} addresses to MongoDB...`);
-            await Wallet.bulkWrite(bulkOps);
-            console.log("✅ Database updated successfully.");
-          } else {
-            console.log("⚠️ No valid addresses found in file.");
-          }
-
-          // **🔄 Attendi che MongoDB aggiorni i dati prima di chiudere**
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          console.log(`🔍 Syncing ${bulkOps.length} addresses to MongoDB...`);
+          await Wallet.bulkWrite(bulkOps);
+          console.log("✅ Database updated successfully.");
 
           resolve();
         } catch (error) {
@@ -73,22 +70,17 @@ const importCSV = async (filePath, status) => {
 (async () => {
   try {
     console.log("🚀 Starting import...");
-
     await importCSV("database/whitelist.csv", "eligible");
-
-    const eligibleCount = await Wallet.countDocuments({ status: "eligible" });
-    console.log(`📊 Total eligible addresses in MongoDB: ${eligibleCount}`);
-
     await importCSV("database/non_eligible.csv", "not eligible");
 
-    const notEligibleCount = await Wallet.countDocuments({ status: "not eligible" });
-    console.log(`📊 Total not eligible addresses in MongoDB: ${notEligibleCount}`);
+    const totalCount = await Wallet.countDocuments();
+    console.log(`📊 Total wallets in MongoDB: ${totalCount}`);
 
     console.log("✅ Data synchronization completed.");
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    await mongoose.connection.close()
+    mongoose.connection.close()
       .then(() => {
         console.log("✅ MongoDB Connection Closed");
         process.exit(0);

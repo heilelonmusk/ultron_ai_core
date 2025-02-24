@@ -13,7 +13,7 @@ const isInWhitelist = async (address) => {
     fs.createReadStream(WHITELIST_FILE)
       .pipe(csvParser())
       .on("data", (row) => {
-        if (row.address && row.address.trim() === address.trim()) {
+        if (row.address && row.address.trim().toLowerCase() === address.trim().toLowerCase()) {
           found = true;
         }
       })
@@ -26,14 +26,15 @@ const isInWhitelist = async (address) => {
 router.get("/check/:address", async (req, res) => {
   try {
     const { address } = req.params;
-    console.log(`🔍 Checking address: ${address}`);
+    const normalizedAddress = address.trim().toLowerCase(); // 🔹 Normalizziamo l'input
+    console.log(`🔍 Checking address: ${normalizedAddress}`);
 
     // Controlliamo se l'indirizzo è nella whitelist
-    const eligible = await isInWhitelist(address);
+    const eligible = await isInWhitelist(normalizedAddress);
     console.log(`📌 Eligible in whitelist: ${eligible}`);
 
     // Cerchiamo il wallet nel database
-    let wallet = await Wallet.findOne({ address });
+    let wallet = await Wallet.findOne({ address: normalizedAddress });
 
     if (wallet) {
       console.log(`✅ Wallet found in DB: ${wallet.address}, status: ${wallet.status}`);
@@ -48,13 +49,13 @@ router.get("/check/:address", async (req, res) => {
       await wallet.save();
 
       console.log(`🔄 Wallet updated: ${wallet.address}, new status: ${wallet.status}`);
-      return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
+      return res.json({ status: wallet.status, address: wallet.address, checkedAt: wallet.checkedAt });
     } else {
       console.log(`⚠️ Wallet not found in DB, creating new entry...`);
 
       // Se il wallet non esiste, lo creiamo con lo stato corretto
       const newWallet = new Wallet({
-        address,
+        address: normalizedAddress,
         status: eligible ? "eligible" : "not eligible",
         checkedAt: new Date(),
       });
@@ -62,7 +63,7 @@ router.get("/check/:address", async (req, res) => {
       await newWallet.save();
       console.log(`✅ New wallet added: ${newWallet.address}, status: ${newWallet.status}`);
 
-      return res.json({ status: newWallet.status, address, checkedAt: newWallet.checkedAt });
+      return res.json({ status: newWallet.status, address: newWallet.address, checkedAt: newWallet.checkedAt });
     }
   } catch (error) {
     console.error("❌ Error in checkWallet:", error);
