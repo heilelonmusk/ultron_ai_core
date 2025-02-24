@@ -5,19 +5,21 @@ const bodyParser = require("body-parser");
 
 const connectDB = require("./config/connectMongoDB");
 
-// Connessione al database
-connectDB();
-
-const walletRoutes = require("./api/routes/walletRoutes");
-const knowledgeRoutes = require("./api/routes/knowledgeRoutes");
-
 const app = express();
+
+// Connessione al database
+(async () => {
+  await connectDB();
+})();
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
 // API Routes
+const walletRoutes = require("./api/routes/walletRoutes");
+const knowledgeRoutes = require("./api/routes/knowledgeRoutes");
+
 app.use("/api/wallet", walletRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 

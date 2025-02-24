@@ -10,6 +10,7 @@ const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       dbName: "heilelonDB", // 🔹 Forza il database corretto
+      serverSelectionTimeoutMS: 5000, // Timeout ridotto per connessione più reattiva
     });
     console.log("✅ MongoDB Connected");
   } catch (err) {
@@ -33,9 +34,9 @@ const parseDate = (dateString) => {
 const importCSV = async (filePath, status) => {
   await connectDB(); // Assicura connessione attiva
 
-  const wallets = [];
-
   return new Promise((resolve, reject) => {
+    const wallets = [];
+
     fs.createReadStream(filePath)
       .pipe(csvParser({ headers: ["address", "importedAt"] }))
       .on("data", (row) => {
@@ -59,7 +60,7 @@ const importCSV = async (filePath, status) => {
           if (wallets.length > 0) {
             console.log(`🔍 Attempting to write ${wallets.length} documents to MongoDB...`);
             const result = await Wallet.bulkWrite(wallets);
-            console.log("✅ MongoDB Write Result:", result);
+            console.log(`✅ Imported ${wallets.length} addresses successfully!`);
           } else {
             console.log(`⚠️ No valid addresses found in ${filePath}`);
           }
@@ -88,6 +89,7 @@ const importCSV = async (filePath, status) => {
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    mongoose.connection.close().then(() => console.log("✅ MongoDB Connection Closed"));
+    await mongoose.connection.close();
+    console.log("✅ MongoDB Connection Closed");
   }
 })();
