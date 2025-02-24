@@ -9,8 +9,7 @@ const connectDB = async () => {
   if (mongoose.connection.readyState === 1) return; // Se già connesso, esci
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      dbName: "heilelonDB", // 🔹 Forza il database corretto
     });
     console.log("✅ MongoDB Connected");
   } catch (err) {
@@ -76,8 +75,6 @@ const importCSV = async (filePath, status) => {
       });
   });
 };
-
-console.log("🔍 Bulk Write Result:", wallets);
 
 // Esegui l'importazione dei CSV
 (async () => {
