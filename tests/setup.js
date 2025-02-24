@@ -12,11 +12,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (testServer) {
-    testServer.server.close(() => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.close();
+      console.log("✅ MongoDB Connection Closed.");
+    }
+    
+    if (testServer) {
+      await new Promise((resolve) => testServer.server.close(resolve));
       console.log("✅ Test Server closed.");
-    });
+    }
+  } catch (error) {
+    console.error("❌ Error during teardown:", error);
   }
-  await mongoose.connection.close();
-  console.log("✅ MongoDB Connection Closed.");
 });
