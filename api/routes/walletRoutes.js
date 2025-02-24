@@ -8,27 +8,31 @@ const WHITELIST_FILE = "database/whitelist.csv";
 
 // ✅ Funzione per verificare se un wallet è nella whitelist
 const isInWhitelist = async (address) => {
-  return new Promise((resolve) => {
-    let found = false;
-    fs.createReadStream(WHITELIST_FILE)
-      .pipe(csvParser())
-      .on("data", (row) => {
-        if (row.address && typeof row.address === "string" && row.address.trim() === address.trim()) {
-          found = true;
-        }
-      })
-      .on("end", () => {
-        resolve(found);
-      });
+  return new Promise((resolve, reject) => {
+    try {
+      let found = false;
+      const stream = fs.createReadStream(WHITELIST_FILE)
+        .pipe(csvParser())
+        .on("data", (row) => {
+          if (row.address?.trim() === address.trim()) {
+            found = true;
+            stream.destroy(); // 🔹 Stoppa lo stream per migliorare le performance
+          }
+        })
+        .on("end", () => resolve(found))
+        .on("error", (err) => reject(err));
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 
 // ✅ API per controllare un wallet
 router.get("/check/:address", async (req, res) => {
   try {
-    console.log("🔍 Request received:", req.params); // Debugging
+    console.log("🔍 Request received:", req.params);
 
-    // Controlliamo se `address` è presente e valido
+    // Controllo validità dell'input
     if (!req.params.address || typeof req.params.address !== "string") {
       console.error("❌ Invalid address format:", req.params.address);
       return res.status(400).json({ error: "Invalid address format" });
@@ -37,47 +41,20 @@ router.get("/check/:address", async (req, res) => {
     const address = req.params.address.trim();
     console.log(`🔍 Checking address: ${address}`);
 
-    // Controlliamo se l'indirizzo è nella whitelist
+    // Controlla se è nella whitelist
     const eligible = await isInWhitelist(address);
     console.log(`📌 Eligible in whitelist: ${eligible}`);
 
-    // Cerchiamo il wallet nel database
-    let wallet = await Wallet.findOne({ address });
+    // 🔹 Usa `findOneAndUpdate` per evitare duplicati e aggiornare il DB in un solo step
+    const wallet = await Wallet.findOneAndUpdate(
+      { address },
+      { $set: { status: eligible ? "eligible" : "not eligible", checkedAt: new Date() } },
+      { upsert: true, new: true }
+    );
 
-    if (wallet) {
-      console.log(`✅ Wallet found in DB: ${wallet.address}, status: ${wallet.status}`);
+    console.log(`🔄 Wallet updated: ${wallet.address}, status: ${wallet.status}`);
+    return res.json({ status: wallet.status, address: wallet.address, checkedAt: wallet.checkedAt });
 
-      // Se è nella whitelist e lo stato non è aggiornato, aggiorniamolo
-      if (eligible && wallet.status !== "eligible") {
-        wallet.status = "eligible";
-        wallet.checkedAt = new Date();
-        await wallet.save();
-        console.log(`🔄 Wallet updated: ${wallet.address}, new status: ${wallet.status}`);
-      } else {
-        console.log(`✅ Wallet already up-to-date: ${wallet.address}, status: ${wallet.status}`);
-      }
-
-      // Aggiorniamo il timestamp della verifica
-      wallet.checkedAt = new Date();
-      await wallet.save();
-
-      console.log(`🔄 Wallet updated: ${wallet.address}, new status: ${wallet.status}`);
-      return res.json({ status: wallet.status, address: wallet.address, checkedAt: wallet.checkedAt });
-    } else {
-      console.log(`⚠️ Wallet not found in DB, creating new entry...`);
-
-      // Se il wallet non esiste, lo creiamo con lo stato corretto
-      const newWallet = new Wallet({
-        address,
-        status: eligible ? "eligible" : "not eligible",
-        checkedAt: new Date(),
-      });
-
-      await newWallet.save();
-      console.log(`✅ New wallet added: ${newWallet.address}, status: ${newWallet.status}`);
-
-      return res.json({ status: newWallet.status, address: newWallet.address, checkedAt: newWallet.checkedAt });
-    }
   } catch (error) {
     console.error("❌ Error in checkWallet:", error);
     return res.status(500).json({ error: "Server error" });
