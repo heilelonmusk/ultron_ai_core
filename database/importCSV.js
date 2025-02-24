@@ -77,6 +77,8 @@ const importCSV = async (filePath, status) => {
   });
 };
 
+console.log("🔍 Bulk Write Result:", wallets);
+
 // Esegui l'importazione dei CSV
 (async () => {
   try {
