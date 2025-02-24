@@ -4,13 +4,12 @@ const csvParser = require("csv-parser");
 require("dotenv").config();
 const Wallet = require("../api/models/WalletModel");
 
-// Funzione per connettersi a MongoDB
+// Connessione a MongoDB
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) return; // Se già connesso, esci
+  if (mongoose.connection.readyState === 1) return;
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      dbName: "heilelonDB", // 🔹 Forza il database corretto
-      serverSelectionTimeoutMS: 5000, // Timeout ridotto per connessione più reattiva
+      dbName: "heilelonDB",
     });
     console.log("✅ MongoDB Connected");
   } catch (err) {
@@ -19,24 +18,13 @@ const connectDB = async () => {
   }
 };
 
-// Funzione per verificare il formato della data
-const parseDate = (dateString) => {
-  if (!dateString) return new Date();
-  const timestamp = Date.parse(dateString);
-  if (isNaN(timestamp)) {
-    console.warn(`⚠️ Invalid date format: ${dateString}. Using current timestamp.`);
-    return new Date();
-  }
-  return new Date(timestamp);
-};
-
-// Funzione per importare CSV in bulk
+// Funzione per importare CSV e aggiornare database
 const importCSV = async (filePath, status) => {
-  await connectDB(); // Assicura connessione attiva
+  await connectDB();
+
+  const wallets = new Map();
 
   return new Promise((resolve, reject) => {
-    const wallets = [];
-
     fs.createReadStream(filePath)
       .pipe(csvParser({ headers: ["address", "importedAt"] }))
       .on("data", (row) => {
@@ -44,29 +32,42 @@ const importCSV = async (filePath, status) => {
           console.warn(`⚠️ Skipped invalid address: ${row.address}`);
           return;
         }
-
-        wallets.push({
-          updateOne: {
-            filter: { address: row.address.trim() },
-            update: {
-              $set: { status, importedAt: parseDate(row.importedAt) },
-            },
-            upsert: true, // Se non esiste, lo crea
-          },
+        wallets.set(row.address.trim(), {
+          status,
+          importedAt: row.importedAt ? new Date(row.importedAt) : new Date(),
         });
       })
       .on("end", async () => {
         try {
-          if (wallets.length > 0) {
-            console.log(`🔍 Attempting to write ${wallets.length} documents to MongoDB...`);
-            const result = await Wallet.bulkWrite(wallets);
-            console.log(`✅ Imported ${wallets.length} addresses successfully!`);
-          } else {
-            console.log(`⚠️ No valid addresses found in ${filePath}`);
+          const bulkOps = [];
+
+          for (const [address, data] of wallets) {
+            bulkOps.push({
+              updateOne: {
+                filter: { address },
+                update: {
+                  $set: {
+                    status: data.status,
+                    importedAt: data.importedAt,
+                  },
+                  $setOnInsert: { checkedAt: null }, // ❗ Non sovrascrive checkedAt
+                },
+                upsert: true,
+              },
+            });
           }
+
+          if (bulkOps.length > 0) {
+            console.log(`🔍 Syncing ${bulkOps.length} addresses to MongoDB...`);
+            await Wallet.bulkWrite(bulkOps);
+            console.log("✅ Database updated successfully.");
+          } else {
+            console.log("⚠️ No valid addresses found in file.");
+          }
+
           resolve();
         } catch (error) {
-          console.error(`❌ Database Error in ${filePath}: ${error.message}`);
+          console.error(`❌ Database Error: ${error.message}`);
           reject(error);
         }
       })
@@ -77,19 +78,47 @@ const importCSV = async (filePath, status) => {
   });
 };
 
-// Esegui l'importazione dei CSV
+// ✅ API per verificare un wallet e aggiornare `checkedAt`
+const express = require("express");
+const router = express.Router();
+
+router.get("/check/:address", async (req, res) => {
+  try {
+    const { address } = req.params;
+    let wallet = await Wallet.findOne({ address });
+
+    if (wallet) {
+      // 🔹 Aggiorna solo `checkedAt` via API
+      wallet.checkedAt = new Date();
+      await wallet.save();
+      return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
+    } else {
+      // 🔹 Se non esiste, lo inseriamo come "not eligible"
+      const newWallet = new Wallet({
+        address,
+        status: "not eligible",
+        checkedAt: new Date(),
+      });
+      await newWallet.save();
+      return res.json({ status: "not eligible", address, checkedAt: newWallet.checkedAt });
+    }
+  } catch (error) {
+    console.error("❌ Error in checkWallet:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+module.exports = router;
+
+// Esegui l'importazione e sincronizzazione con MongoDB
 (async () => {
   try {
     await importCSV("database/whitelist.csv", "eligible");
     await importCSV("database/non_eligible.csv", "not eligible");
-
-    // 🔍 Dopo l'importazione, stampiamo il numero totale di documenti
-    const total = await Wallet.countDocuments();
-    console.log(`📊 Total wallets in database: ${total}`);
+    console.log("✅ Data synchronization completed.");
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    await mongoose.connection.close();
-    console.log("✅ MongoDB Connection Closed");
+    mongoose.connection.close().then(() => console.log("✅ MongoDB Connection Closed"));
   }
 })();
