@@ -23,22 +23,20 @@ const isInWhitelist = async (address) => {
   });
 };
 
-// ✅ API per verificare un wallet
 router.get("/check/:address", async (req, res) => {
   try {
     const { address } = req.params;
     const eligible = await isInWhitelist(address);
-    let wallet = await Wallet.findOne({ address });
+    let wallet = await Wallet.findOne({ address });  // 🔴 TROVARE SOLO 1 INDIRIZZO
 
     if (wallet) {
-      wallet.checkedAt = new Date(); // Aggiorna solo se l'utente fa una verifica API
+      wallet.checkedAt = new Date();
       if (eligible && wallet.status !== "eligible") {
-        wallet.status = "eligible"; // Aggiorna a "eligible" se ora è nella whitelist
+        wallet.status = "eligible";
       }
       await wallet.save();
       return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
     } else {
-      // 🔹 Se il wallet non esiste, lo aggiungiamo con lo stato corretto
       const newWallet = new Wallet({
         address,
         status: eligible ? "eligible" : "not eligible",
@@ -49,6 +47,16 @@ router.get("/check/:address", async (req, res) => {
     }
   } catch (error) {
     console.error("❌ Error in checkWallet:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/all", async (req, res) => {
+  try {
+    const wallets = await Wallet.find({});
+    return res.json(wallets);
+  } catch (error) {
+    console.error("❌ Error fetching wallets:", error);
     return res.status(500).json({ error: "Server error" });
   }
 });
