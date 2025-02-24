@@ -1,3 +1,4 @@
+const fs = require("fs");
 const mongoose = require("mongoose");
 const request = require("supertest");
 const Wallet = require("../api/models/WalletModel");
@@ -6,6 +7,12 @@ const { startTestServer, closeTestServer } = require("./utils/testServer");
 let server, app;
 
 describe("API /wallet/check", () => {
+  
+  beforeAll(async () => {
+    console.log("🔄 Adding test wallet to whitelist...");
+    fs.appendFileSync("database/whitelist.csv", "dym98765\n");
+  });
+  
   beforeAll(async () => {
     ({ server, app } = await startTestServer());
   });
@@ -16,8 +23,10 @@ describe("API /wallet/check", () => {
     if (server) server.close();
   });
 
+
   beforeEach(async () => {
     await Wallet.deleteMany({});
+    console.log("🗑️ Wallet collection cleared.");
   });
 
   test("Should return 'not eligible' for unknown wallet", async () => {
