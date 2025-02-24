@@ -2,11 +2,11 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const csvParser = require("csv-parser");
 require("dotenv").config();
-const Wallet = require("../api/models/WalletModel");
-const connectDB = require("../config/connectMongoDB");
+const Wallet = require("../api/models/WalletModel"); 
+const { connectMongoDB, disconnectMongoDB } = require("../config/connectMongoDB");
 
 const importCSV = async (filePath, status) => {
-  await connectDB();
+  await connectMongoDB();
 
   console.log(`🚀 Importing ${filePath} as '${status}'`);
 
@@ -87,14 +87,13 @@ const importCSV = async (filePath, status) => {
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    mongoose.connection.close()
-      .then(() => {
-        console.log("✅ MongoDB Connection Closed");
-        process.exit(0);
-      })
-      .catch((err) => {
-        console.error("❌ Error closing MongoDB connection:", err.message);
-        process.exit(1);
-      });
+    try {
+      await disconnectMongoDB();
+    console.log("✅ MongoDB Connection Closed");
+    if (process.env.NODE_ENV !== "test") process.exit(0); // 🔄 Evita di chiudere Jest nei test
+    } catch (err) {
+      console.error("❌ Error closing MongoDB connection:", err.message);
+      process.exit(1);
+    }
   }
 })();
