@@ -6,23 +6,33 @@ const router = express.Router();
 
 const WHITELIST_FILE = "database/whitelist.csv";
 
+// ✅ Funzione per validare gli indirizzi Cosmos (Dymension)
+const isValidAddress = (address) => {
+  // Accetta solo indirizzi che iniziano con 'dym' seguiti da almeno 5 caratteri alfanumerici
+  const regex = /^dym[0-9a-zA-Z]{5,}$/;
+  return regex.test(address);
+};
+
 // ✅ Funzione per verificare se un wallet è nella whitelist
 const isInWhitelist = async (address) => {
   console.log("🔍 Checking whitelist file...");
   return new Promise((resolve) => {
     let found = false;
     fs.createReadStream(WHITELIST_FILE)
-      .pipe(csvParser({ headers: false }))  // ❗ Modifica: non assumiamo intestazioni fisse
+      .pipe(csvParser({ headers: false, skipLines: 0 })) // Ignora intestazioni e righe vuote
       .on("data", (row) => {
-        console.log("📄 Row from CSV:", row);
-        const walletAddress = Object.values(row)[0]; // ❗ Estrarre il primo valore
-        if (walletAddress && walletAddress.trim() === address.trim()) {
+        const walletAddress = Object.values(row)[0]?.trim(); // Estrai il primo valore della riga
+        if (walletAddress === address) {
           found = true;
         }
       })
       .on("end", () => {
         console.log(`✅ Found in whitelist: ${found}`);
         resolve(found);
+      })
+      .on("error", (err) => {
+        console.error("❌ Error reading whitelist file:", err);
+        resolve(false); // In caso di errore, consideriamo l'indirizzo come "non idoneo"
       });
   });
 };
@@ -32,20 +42,21 @@ router.get("/check/:address", async (req, res) => {
   try {
     console.log("🔍 Request received:", req.params);
 
-    // Controllo validità dell'input
-    if (!req.params.address || typeof req.params.address !== "string") {
-      console.error("❌ Invalid address format:", req.params.address);
+    const { address } = req.params;
+
+    // **🔍 Verifica se l'indirizzo è valido**
+    if (!isValidAddress(address)) {
+      console.error("❌ Invalid address format:", address);
       return res.status(400).json({ error: "Invalid address format" });
     }
 
-    const address = req.params.address.trim();
     console.log(`🔍 Checking address: ${address}`);
 
-    // Controlla se è nella whitelist
+    // **🔍 Controlla se è nella whitelist**
     const eligible = await isInWhitelist(address);
     console.log(`📌 Eligible in whitelist: ${eligible}`);
 
-    // 🔹 Usa `findOneAndUpdate` per evitare duplicati e aggiornare il DB in un solo step
+    // **🔍 Controlla se è già nel DB**
     const wallet = await Wallet.findOneAndUpdate(
       { address },
       { $set: { status: eligible ? "eligible" : "not eligible", checkedAt: new Date() } },
