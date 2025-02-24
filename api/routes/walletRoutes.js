@@ -13,7 +13,7 @@ const isInWhitelist = async (address) => {
     fs.createReadStream(WHITELIST_FILE)
       .pipe(csvParser())
       .on("data", (row) => {
-        if (row.address && row.address.trim() === address.trim()) {
+        if (row.address && typeof row.address === "string" && row.address.trim() === address.trim()) {
           found = true;
         }
       })
@@ -28,23 +28,21 @@ router.get("/check/:address", async (req, res) => {
   try {
     console.log("🔍 Request received:", req.params); // Debugging
 
-    // Assicuriamoci che `address` sia presente e sia una stringa
-    const { address } = req.params;
-
-    if (!address || typeof address !== "string") {
-      console.error("❌ Invalid address format:", address);
+    // Controlliamo se `address` è presente e valido
+    if (!req.params.address || typeof req.params.address !== "string") {
+      console.error("❌ Invalid address format:", req.params.address);
       return res.status(400).json({ error: "Invalid address format" });
     }
 
-    const trimmedAddress = address.trim();
-    console.log(`🔍 Checking address: ${trimmedAddress}`);
+    const address = req.params.address.trim();
+    console.log(`🔍 Checking address: ${address}`);
 
     // Controlliamo se l'indirizzo è nella whitelist
-    const eligible = await isInWhitelist(trimmedAddress);
+    const eligible = await isInWhitelist(address);
     console.log(`📌 Eligible in whitelist: ${eligible}`);
 
     // Cerchiamo il wallet nel database
-    let wallet = await Wallet.findOne({ address: trimmedAddress });
+    let wallet = await Wallet.findOne({ address });
 
     if (wallet) {
       console.log(`✅ Wallet found in DB: ${wallet.address}, status: ${wallet.status}`);
@@ -65,7 +63,7 @@ router.get("/check/:address", async (req, res) => {
 
       // Se il wallet non esiste, lo creiamo con lo stato corretto
       const newWallet = new Wallet({
-        address: trimmedAddress,
+        address,
         status: eligible ? "eligible" : "not eligible",
         checkedAt: new Date(),
       });
