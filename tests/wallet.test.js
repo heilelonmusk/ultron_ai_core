@@ -9,15 +9,20 @@ const TEST_WALLET = "dym98765";
 const WHITELIST_FILE = "database/whitelist.csv";
 
 describe("API /wallet/check", () => {
-
+  
   beforeAll(async () => {
     console.log("🔄 Adding test wallet to whitelist...");
     
-    // Assicura che il file esista e scrive il test wallet
+    // Assicura che il file esista e scrive il test wallet in una nuova linea
     if (!fs.existsSync(WHITELIST_FILE)) {
-      fs.writeFileSync(WHITELIST_FILE, `${TEST_WALLET}\n`);
+      fs.writeFileSync(WHITELIST_FILE, `${TEST_WALLET}\n`, { flag: "w" });
     } else {
-      fs.appendFileSync(WHITELIST_FILE, `${TEST_WALLET}\n`);
+      let data = fs.readFileSync(WHITELIST_FILE, "utf8").trim().split("\n");
+
+      // Evita duplicati, aggiunge solo se non esiste
+      if (!data.includes(TEST_WALLET)) {
+        fs.appendFileSync(WHITELIST_FILE, `\n${TEST_WALLET}`);
+      }
     }
 
     // 🔄 Attendi che il file system processi la scrittura
@@ -33,9 +38,9 @@ describe("API /wallet/check", () => {
     if (server) server.close();
 
     // Rimuovi il wallet dal file CSV dopo il test
-    let data = fs.readFileSync(WHITELIST_FILE, "utf8").split("\n");
+    let data = fs.readFileSync(WHITELIST_FILE, "utf8").trim().split("\n");
     data = data.filter(line => line.trim() !== TEST_WALLET);
-    fs.writeFileSync(WHITELIST_FILE, data.join("\n"));
+    fs.writeFileSync(WHITELIST_FILE, data.join("\n") + "\n");
   });
 
   beforeEach(async () => {
