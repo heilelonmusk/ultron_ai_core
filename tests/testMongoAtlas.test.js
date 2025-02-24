@@ -1,10 +1,10 @@
-// tests/testMongoAtlas.js
 require("dotenv").config();
 const mongoose = require("mongoose");
+const connectDB = require("../config/connectMongoDB");
 
 describe("MongoDB Connection Test", () => {
   beforeAll(async () => {
-    await mongoose.connect(process.env.MONGO_URI, { dbName: "heilelonDB" });
+    await connectDB();
   });
 
   afterAll(async () => {

@@ -2,12 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+
 const connectDB = require("./config/connectMongoDB");
 
 const app = express();
 
-// Connessione al database al caricamento del server
-connectDB().then(() => console.log("✅ Database connection established")).catch(console.error);
+// Connessione a MongoDB
+(async () => {
+  await connectDB();
+})();
 
 // Middleware
 app.use(cors());
@@ -20,14 +23,11 @@ const knowledgeRoutes = require("./api/routes/knowledgeRoutes");
 app.use("/api/wallet", walletRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 
-// Server Listener
-const PORT = process.env.PORT || 5001;
-
-// Evita problemi di porta occupata nei test
 if (process.env.NODE_ENV !== "test") {
+  const PORT = process.env.PORT || 5001;
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
   });
 }
 
-module.exports = { app };
+module.exports = app;

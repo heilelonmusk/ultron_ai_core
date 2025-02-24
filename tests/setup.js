@@ -1,6 +1,6 @@
-const connectDB = require("../config/connectMongoDB");
 const mongoose = require("mongoose");
-const { app } = require("../server");
+const connectDB = require("../config/connectMongoDB");
+const app = require("../server");
 
 beforeAll(async () => {
   await connectDB();
@@ -8,6 +8,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (global.testServer) {
+    global.testServer.close();
+    console.log("✅ Test Server closed.");
+  }
   await mongoose.connection.close();
-  global.testServer.close();
 });

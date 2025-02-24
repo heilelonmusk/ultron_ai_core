@@ -1,6 +1,5 @@
-// tests/importCSV.test.js
+const importCSV = require("../database/importCSV");
 const Wallet = require("../api/models/WalletModel");
-const { importCSV } = require("../database/importCSV");
 
 describe("CSV Import Test", () => {
   beforeEach(async () => {
