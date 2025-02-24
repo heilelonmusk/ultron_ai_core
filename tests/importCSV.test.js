@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Wallet = require("../api/models/WalletModel");
 const { importCSV } = require("../database/importCSV");
 const path = require("path");
-const { getTestServer } = require("./utils/testServer");
+const { getTestServer, closeServer } = require("./utils/testServer");
 
 let server;
 
@@ -12,9 +12,23 @@ describe("CSV Import Test", () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    if (server) server.close();
-    console.log("✅ Test Server closed.");
+    try {
+      if (server) {
+        await closeServer();
+        console.log("✅ Test Server closed.");
+      }
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.connection.close();
+        console.log("✅ MongoDB Connection Closed.");
+      }
+    } catch (error) {
+      console.error("❌ Error closing resources:", error);
+    }
+  });
+
+  beforeEach(async () => {
+    await Wallet.deleteMany({});
+    console.log("🗑️ Database cleaned before test.");
   });
 
   test("Should import whitelist.csv correctly", async () => {

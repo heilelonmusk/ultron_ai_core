@@ -1,12 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const mongoose = require("mongoose"); // FIX: Import di mongoose
+const mongoose = require("mongoose");
 const connectDB = require("../../config/connectMongoDB");
 const walletRoutes = require("../../api/routes/walletRoutes");
 const knowledgeRoutes = require("../../api/routes/knowledgeRoutes");
 
-let server; // 🔹 Definiamo `server` a livello globale
+let server;
 
 async function getTestServer() {
   if (server) {
@@ -32,7 +32,6 @@ async function getTestServer() {
   return { app, server, port };
 }
 
-// 🔹 Funzione per chiudere correttamente il server
 const closeServer = () => {
   return new Promise((resolve) => {
     if (server) {
@@ -46,10 +45,12 @@ const closeServer = () => {
   });
 };
 
-// 🔹 Chiudiamo il server e MongoDB dopo i test
 afterAll(async () => {
   await closeServer();
-  await mongoose.connection.close(); // FIX: Corretta gestione MongoDB
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.close();
+    console.log("✅ MongoDB Connection Closed.");
+  }
 });
 
 module.exports = { getTestServer, closeServer };

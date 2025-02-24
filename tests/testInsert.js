@@ -4,18 +4,32 @@ const Wallet = require("../api/models/WalletModel");
 const connectDB = require("../config/connectMongoDB");
 
 (async () => {
-  await connectDB();
-  console.log("🔍 Inserting test wallet...");
+  try {
+    await connectDB();
 
-  await Wallet.create({
-    address: "dym1manualtest",
-    status: "eligible",
-    importedAt: new Date()
-  });
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error("❌ MongoDB connection failed.");
+    }
 
-  console.log("✅ Test wallet inserted!");
-  const count = await Wallet.countDocuments();
-  console.log(`📊 Total wallets in DB: ${count}`);
+    console.log("🔍 Inserting test wallet...");
 
-  mongoose.connection.close();
+    await Wallet.create({
+      address: "dym1manualtest",
+      status: "eligible",
+      importedAt: new Date(),
+    });
+
+    console.log("✅ Test wallet inserted!");
+    
+    const count = await Wallet.countDocuments();
+    console.log(`📊 Total wallets in DB: ${count}`);
+
+  } catch (error) {
+    console.error("❌ Error during test wallet insertion:", error.message);
+  } finally {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log("✅ MongoDB connection closed.");
+    }
+  }
 })();
