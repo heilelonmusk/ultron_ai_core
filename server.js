@@ -3,6 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
+const connectDB = require("./config/connectMongoDB");
+
+// Connessione al database
+connectDB();
+
 const walletRoutes = require("./api/routes/walletRoutes");
 const knowledgeRoutes = require("./api/routes/knowledgeRoutes");
 
