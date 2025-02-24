@@ -12,10 +12,11 @@ const isInWhitelist = async (address) => {
   return new Promise((resolve) => {
     let found = false;
     fs.createReadStream(WHITELIST_FILE)
-      .pipe(csvParser())
+      .pipe(csvParser({ headers: false }))  // ❗ Modifica: non assumiamo intestazioni fisse
       .on("data", (row) => {
-        console.log("📄 Row from CSV:", row);  // <-- Debugging
-        if (row.address && row.address.trim() === address.trim()) {
+        console.log("📄 Row from CSV:", row);
+        const walletAddress = Object.values(row)[0]; // ❗ Estrarre il primo valore
+        if (walletAddress && walletAddress.trim() === address.trim()) {
           found = true;
         }
       })
