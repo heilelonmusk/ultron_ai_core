@@ -12,8 +12,10 @@ describe("API /wallet/check", () => {
 
   afterAll(async () => {
     await mongoose.connection.close();
-    if (server) server.close();
-    console.log("✅ Test Server closed.");
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+      console.log("✅ Test Server closed.");
+    }
   });
 
   test("Should return 'not eligible' for unknown wallet", async () => {
