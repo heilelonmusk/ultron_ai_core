@@ -8,22 +8,21 @@ const WHITELIST_FILE = "database/whitelist.csv";
 
 // ✅ Funzione per verificare se un wallet è nella whitelist
 const isInWhitelist = async (address) => {
-  return new Promise((resolve, reject) => {
-    try {
-      let found = false;
-      const stream = fs.createReadStream(WHITELIST_FILE)
-        .pipe(csvParser())
-        .on("data", (row) => {
-          if (row.address?.trim() === address.trim()) {
-            found = true;
-            stream.destroy(); // 🔹 Stoppa lo stream per migliorare le performance
-          }
-        })
-        .on("end", () => resolve(found))
-        .on("error", (err) => reject(err));
-    } catch (error) {
-      reject(error);
-    }
+  console.log("🔍 Checking whitelist file...");
+  return new Promise((resolve) => {
+    let found = false;
+    fs.createReadStream(WHITELIST_FILE)
+      .pipe(csvParser())
+      .on("data", (row) => {
+        console.log("📄 Row from CSV:", row);  // <-- Debugging
+        if (row.address && row.address.trim() === address.trim()) {
+          found = true;
+        }
+      })
+      .on("end", () => {
+        console.log(`✅ Found in whitelist: ${found}`);
+        resolve(found);
+      });
   });
 };
 
