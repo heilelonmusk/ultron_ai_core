@@ -9,6 +9,7 @@ const importCSV = async (filePath, status) => {
   await connectDB();
 
   const wallets = new Map();
+  let totalAddresses = 0;
 
   return new Promise((resolve, reject) => {
     fs.createReadStream(filePath)
@@ -18,6 +19,7 @@ const importCSV = async (filePath, status) => {
           console.warn(`⚠️ Skipped invalid address: ${row.address}`);
           return;
         }
+        totalAddresses++;
         wallets.set(row.address.trim(), {
           status,
           importedAt: row.importedAt ? new Date(row.importedAt) : new Date(),
@@ -25,8 +27,19 @@ const importCSV = async (filePath, status) => {
       })
       .on("end", async () => {
         try {
+          console.log(`📊 Found ${totalAddresses} addresses in ${filePath}.`);
+          
           const bulkOps = [];
           for (const [address, data] of wallets) {
+            const existingWallet = await Wallet.findOne({ address });
+
+            if (existingWallet) {
+              if (existingWallet.status === "not eligible" && status === "not eligible") {
+                console.log(`⚠️ Skipping already 'not eligible' address: ${address}`);
+                continue;
+              }
+            }
+
             bulkOps.push({
               updateOne: {
                 filter: { address },
@@ -47,7 +60,7 @@ const importCSV = async (filePath, status) => {
             await Wallet.bulkWrite(bulkOps);
             console.log("✅ Database updated successfully.");
           } else {
-            console.log("⚠️ No valid addresses found in file.");
+            console.log("⚠️ No new valid addresses to import from", filePath);
           }
           resolve();
         } catch (error) {
@@ -92,15 +105,30 @@ router.get("/check/:address", async (req, res) => {
 
 module.exports = router;
 
-// Esegui l'importazione e sincronizzazione con MongoDB
+// **🔄 Esegui l'importazione e sincronizzazione con MongoDB**
 (async () => {
   try {
+    console.log("🚀 Starting import...");
+
     await importCSV("database/whitelist.csv", "eligible");
+
+    const eligibleCount = await Wallet.countDocuments({ status: "eligible" });
+    console.log(`📊 Total eligible addresses in MongoDB: ${eligibleCount}`);
+
     await importCSV("database/non_eligible.csv", "not eligible");
+
     console.log("✅ Data synchronization completed.");
   } catch (error) {
     console.error("❌ Import process failed:", error.message);
   } finally {
-    mongoose.connection.close().then(() => console.log("✅ MongoDB Connection Closed"));
+    mongoose.connection.close()
+      .then(() => {
+        console.log("✅ MongoDB Connection Closed");
+        process.exit(0);
+      })
+      .catch((err) => {
+        console.error("❌ Error closing MongoDB connection:", err.message);
+        process.exit(1);
+      });
   }
 })();
