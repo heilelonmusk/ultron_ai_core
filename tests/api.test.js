@@ -1,14 +1,24 @@
+const mongoose = require("mongoose");
 const request = require("supertest");
-const app = require("../server");
 const Wallet = require("../api/models/WalletModel");
+const { getTestServer } = require("./testServer");
+
+let server, app;
 
 describe("API /wallet/check", () => {
-  beforeEach(async () => {
-    await Wallet.deleteMany();
+  beforeAll(async () => {
+    ({ server, app } = await getTestServer());
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    if (server) server.close();
+    console.log("✅ Test Server closed.");
   });
 
   test("Should return 'not eligible' for unknown wallet", async () => {
     const res = await request(app).get("/api/wallet/check/dym123456789");
+    expect(res.status).toBe(200);
     expect(res.body.status).toBe("not eligible");
   });
 
@@ -16,6 +26,7 @@ describe("API /wallet/check", () => {
     await Wallet.create({ address: "dym123456789", status: "eligible" });
 
     const res = await request(app).get("/api/wallet/check/dym123456789");
+    expect(res.status).toBe(200);
     expect(res.body.status).toBe("eligible");
   });
 });

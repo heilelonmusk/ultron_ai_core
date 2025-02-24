@@ -2,12 +2,12 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 const connectDB = async () => {
-  if (mongoose.connection.readyState !== 0) return;
+  if (mongoose.connection.readyState === 1) return; // Evitiamo doppie connessioni
 
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       dbName: "heilelonDB",
-      serverSelectionTimeoutMS: 15000, // Timeout più lungo per evitare disconnessioni rapide
+      serverSelectionTimeoutMS: 30000, // ⏳ Timeout più lungo per stabilità
     });
 
     console.log("✅ MongoDB Connected to:", mongoose.connection.name);
@@ -17,7 +17,7 @@ const connectDB = async () => {
   }
 };
 
-// Disabilita il reconnect durante i test
+// Blocchiamo la riconnessione durante i test
 if (process.env.NODE_ENV !== "test") {
   mongoose.connection.on("disconnected", () => {
     console.warn("⚠️ MongoDB Disconnected! Trying to reconnect...");

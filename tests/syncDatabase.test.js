@@ -1,17 +1,27 @@
+const mongoose = require("mongoose");
 const Wallet = require("../api/models/WalletModel");
+const { importCSV } = require("../database/importCSV");
+const path = require("path");
+const { getTestServer } = require("./testServer");
+
+let server;
 
 describe("Database Sync Test", () => {
-  beforeEach(async () => {
-    await Wallet.deleteMany(); // Pulisce il database prima di ogni test
+  beforeAll(async () => {
+    ({ server } = await getTestServer());
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    if (server) server.close();
+    console.log("✅ Test Server closed.");
   });
 
   test("Should update 'not eligible' wallets when added to whitelist", async () => {
-    await Wallet.create({ address: "dym12345", status: "not eligible" });
+    const filePath = path.join(__dirname, "../database/whitelist.csv");
+    await importCSV(filePath, "eligible");
 
-    // Simula l'aggiunta in whitelist
-    await Wallet.updateOne({ address: "dym12345" }, { $set: { status: "eligible" } });
-
-    const wallet = await Wallet.findOne({ address: "dym12345" });
-    expect(wallet.status).toBe("eligible");
+    const updatedWallets = await Wallet.countDocuments({ status: "eligible" });
+    expect(updatedWallets).toBeGreaterThan(0);
   });
 });

@@ -1,16 +1,21 @@
 const mongoose = require("mongoose");
-const connectDB = require("../config/connectMongoDB");
-const app = require("../server");
+const { getTestServer } = require("./utils/testServer");
+
+let testServer = null;
 
 beforeAll(async () => {
-  await connectDB();
-  global.testServer = app.listen(6001, () => console.log("🚀 Test Server running on port 6001"));
+  testServer = await getTestServer();
+  global.testApp = testServer.app;
+  global.testServer = testServer.server;
+  global.testPort = testServer.port;
 });
 
 afterAll(async () => {
-  if (global.testServer) {
-    await new Promise((resolve) => global.testServer.close(resolve)); // 🛠 Attendi che il server si chiuda completamente
-    console.log("✅ Test Server closed.");
+  if (testServer) {
+    testServer.server.close(() => {
+      console.log("✅ Test Server closed.");
+    });
   }
   await mongoose.connection.close();
+  console.log("✅ MongoDB Connection Closed.");
 });
