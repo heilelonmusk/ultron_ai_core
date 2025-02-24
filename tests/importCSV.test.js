@@ -3,7 +3,7 @@ const Wallet = require("../api/models/WalletModel");
 
 describe("CSV Import Test", () => {
   beforeEach(async () => {
-    await Wallet.deleteMany();
+    await Wallet.deleteMany(); // Rimuove i dati esistenti prima di ogni test
   });
 
   test("Should import whitelist.csv correctly", async () => {

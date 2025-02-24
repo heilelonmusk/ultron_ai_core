@@ -3,11 +3,7 @@ const app = require("../server");
 const Wallet = require("../api/models/WalletModel");
 
 describe("API /wallet/check", () => {
-  beforeAll(async () => {
-    await Wallet.deleteMany();
-  });
-
-  afterAll(async () => {
+  beforeEach(async () => {
     await Wallet.deleteMany();
   });
 

@@ -9,7 +9,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (global.testServer) {
-    global.testServer.close();
+    await new Promise((resolve) => global.testServer.close(resolve)); // 🛠 Attendi che il server si chiuda completamente
     console.log("✅ Test Server closed.");
   }
   await mongoose.connection.close();
