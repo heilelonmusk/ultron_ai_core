@@ -23,11 +23,10 @@ const knowledgeRoutes = require("./api/routes/knowledgeRoutes");
 app.use("/api/wallet", walletRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 
-if (process.env.NODE_ENV !== "test") {
-  const PORT = process.env.PORT || 5001;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
-}
+// 🔹 Forziamo la porta su 5001
+const PORT = 5001;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
 module.exports = app;

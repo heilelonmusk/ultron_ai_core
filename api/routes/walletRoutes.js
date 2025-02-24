@@ -26,23 +26,42 @@ const isInWhitelist = async (address) => {
 router.get("/check/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    console.log(`🔍 Checking address: ${address}`);
+
+    // Controlliamo se l'indirizzo è nella whitelist
     const eligible = await isInWhitelist(address);
-    let wallet = await Wallet.findOne({ address });  // 🔴 TROVARE SOLO 1 INDIRIZZO
+    console.log(`📌 Eligible in whitelist: ${eligible}`);
+
+    // Cerchiamo il wallet nel database
+    let wallet = await Wallet.findOne({ address });
 
     if (wallet) {
-      wallet.checkedAt = new Date();
+      console.log(`✅ Wallet found in DB: ${wallet.address}, status: ${wallet.status}`);
+
+      // Se è nella whitelist e non è aggiornato, aggiorniamolo
       if (eligible && wallet.status !== "eligible") {
         wallet.status = "eligible";
       }
+
+      // Aggiorniamo il timestamp della verifica
+      wallet.checkedAt = new Date();
       await wallet.save();
+
+      console.log(`🔄 Wallet updated: ${wallet.address}, new status: ${wallet.status}`);
       return res.json({ status: wallet.status, address, checkedAt: wallet.checkedAt });
     } else {
+      console.log(`⚠️ Wallet not found in DB, creating new entry...`);
+
+      // Se il wallet non esiste, lo creiamo con lo stato corretto
       const newWallet = new Wallet({
         address,
         status: eligible ? "eligible" : "not eligible",
         checkedAt: new Date(),
       });
+
       await newWallet.save();
+      console.log(`✅ New wallet added: ${newWallet.address}, status: ${newWallet.status}`);
+
       return res.json({ status: newWallet.status, address, checkedAt: newWallet.checkedAt });
     }
   } catch (error) {
