@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const winston = require("winston");
 require("dotenv").config();
 
-const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fallback_db"; // Se `MONGO_URI` non è definito, usa un fallback
+const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fallback_db"; 
 const MAX_RETRIES = 5;
 const RETRY_INTERVAL = 5000;
 
@@ -18,45 +18,56 @@ const logger = winston.createLogger({
   transports: [new winston.transports.Console()],
 });
 
-async function connectDB(retries = MAX_RETRIES) {
+// ✅ Connessione a MongoDB con gestione degli errori
+async function connectMongoDB(retries = MAX_RETRIES) {
+  if (mongoose.connection.readyState === 1) {
+    logger.info("✅ MongoDB is already connected.");
+    return;
+  }
+
   if (!mongoURI || !mongoURI.includes("mongodb+srv")) {
-    logger.error("❌ MONGO_URI is missing or incorrect. Ensure you're using a MongoDB Atlas URI.");
+    logger.error("❌ MONGO_URI is missing or incorrect.");
     process.exit(1);
   }
 
   try {
-    logger.info(`🔄 Connecting to MongoDB Atlas...`);
+    logger.info("🔄 Connecting to MongoDB Atlas...");
     await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // Timeout per la selezione del server
-      socketTimeoutMS: 45000, // Timeout connessione socket
-      maxPoolSize: 10, // Limita il numero di connessioni simultanee
-      connectTimeoutMS: 30000, // Aumenta il timeout
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000, 
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000,
     });
     logger.info(`✅ Connected to MongoDB Atlas at ${mongoURI}`);
   } catch (error) {
     logger.error(`❌ MongoDB connection error: ${error.message}`);
-
+    
     if (retries > 0) {
       logger.warn(`🔁 Retrying in ${RETRY_INTERVAL / 1000} seconds... (${retries} attempts left)`);
-      setTimeout(() => connectDB(retries - 1), RETRY_INTERVAL);
+      setTimeout(() => connectMongoDB(retries - 1), RETRY_INTERVAL);
     } else {
-      logger.error("❌ All retry attempts failed. Exiting application.");
+      logger.error("❌ All retry attempts failed. Exiting.");
       process.exit(1);
     }
   }
 }
 
+// ✅ Disconnessione controllata
+async function disconnectMongoDB() {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+    logger.info("🛑 MongoDB connection closed.");
+  }
+}
+
 mongoose.connection.on("disconnected", () => {
   logger.warn("⚠️ MongoDB disconnected. Reconnecting...");
-  connectDB();
+  setImmediate(connectMongoDB);
 });
 
 process.on("SIGINT", async () => {
-  await mongoose.connection.close();
-  logger.info("🛑 MongoDB connection closed due to app termination.");
+  await disconnectMongoDB();
   process.exit(0);
 });
 
-module.exports = connectDB;
+module.exports = { connectMongoDB, disconnectMongoDB };
