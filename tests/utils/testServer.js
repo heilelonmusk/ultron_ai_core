@@ -32,15 +32,20 @@ async function backupDatabase() {
     return;
   }
 
-  const collections = await mongoose.connection.db.collections();
-  let backup = {};
+  try {
+    const collections = await mongoose.connection.db.collections();
+    let backup = {};
 
-  for (let collection of collections) {
-    const data = await collection.find({}).toArray();
-    backup[collection.collectionName] = data;
+    for (let collection of collections) {
+      const data = await collection.find({}).toArray();
+      backup[collection.collectionName] = data;
+    }
+
+    fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2), "utf-8");
+    console.log("✅ Database backup completed.");
+  } catch (error) {
+    console.error("❌ Error during database backup:", error);
   }
-
-  fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2), "utf-8");
 }
 
 async function restoreDatabase() {
@@ -56,20 +61,25 @@ async function restoreDatabase() {
     await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
   }
 
-  const backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
-  const collections = await mongoose.connection.db.collections();
+  try {
+    const backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
+    const collections = await mongoose.connection.db.collections();
 
-  for (let collection of collections) {
-    const collectionName = collection.collectionName;
-    if (backupData[collectionName] && backupData[collectionName].length > 0) {
-      await collection.deleteMany({});
-      await collection.insertMany(backupData[collectionName]);
-    } else {
-      console.log(`⚠️ Skipping restore for empty collection: ${collectionName}`);
+    for (let collection of collections) {
+      const collectionName = collection.collectionName;
+      if (backupData[collectionName] && backupData[collectionName].length > 0) {
+        await collection.deleteMany({});
+        await collection.insertMany(backupData[collectionName]);
+      } else {
+        console.log(`⚠️ Skipping restore for empty collection: ${collectionName}`);
+      }
     }
-  }
 
-  fs.unlinkSync(backupPath);
+    fs.unlinkSync(backupPath);
+    console.log("✅ Database restore completed.");
+  } catch (error) {
+    console.error("❌ Error during database restore:", error);
+  }
 }
 
 async function startTestServer() {

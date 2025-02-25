@@ -1,25 +1,35 @@
 const mongoose = require("mongoose");
-require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config();
 
-const backupPath = path.join(__dirname, "backup.json");
+const backupPath = path.join(__dirname, "db_backup.json");
 
-beforeAll(async () => {
+async function backupDatabase() {
+  console.log("📥 Backing up relevant database collections...");
+
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {});
+
+    const collectionsToBackup = ["wallets", "non_eligible"]; // Solo le collezioni rilevanti per i test
+    let backupData = {};
+
+    for (const collectionName of collectionsToBackup) {
+      const collection = mongoose.connection.db.collection(collectionName);
+      const documents = await collection.find({}).toArray();
+      backupData[collectionName] = documents;
+    }
+
+    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
+    console.log("✅ Backup completed.");
+  } catch (error) {
+    console.error("❌ Backup failed:", error);
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+module.exports = async () => {
   console.log("🔄 Connecting to test database...");
-
-  if (mongoose.connection.readyState !== 1) {
-    await mongoose.connect(process.env.MONGO_URI_TEST || "mongodb://localhost:27017/testdb");
-  }
-
-  console.log("📥 Backing up database...");
-  const collections = await mongoose.connection.db.collections();
-  let backup = {};
-
-  for (let collection of collections) {
-    const data = await collection.find({}).toArray();
-    backup[collection.collectionName] = data;
-  }
-
-  fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2), "utf-8");
-});
+  await backupDatabase();
+};
