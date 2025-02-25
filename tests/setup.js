@@ -1,35 +1,41 @@
 const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config();
+const axios = require("axios");
 
-const backupPath = path.join(__dirname, "db_backup.json");
+const backupPath = path.join(__dirname, "backup.json");
+const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://your-server.com/api/backup";
 
+// Funzione per salvare il database in remoto
 async function backupDatabase() {
-  console.log("📥 Backing up relevant database collections...");
+  console.log("📥 Backing up database...");
 
+  if (mongoose.connection.readyState !== 1) {
+    console.warn("⚠️ MongoDB connection is not open. Skipping backup.");
+    return;
+  }
+
+  const collection = mongoose.connection.db.collection("wallets");
+  const backupData = await collection.find({}).toArray();
+
+  const backupPayload = { wallets: backupData };
+
+  // Salva il backup in locale
+  fs.writeFileSync(backupPath, JSON.stringify(backupPayload, null, 2), "utf-8");
+
+  // Invia il backup a un server remoto (opzionale)
   try {
-    await mongoose.connect(process.env.MONGO_URI, {});
-
-    const collectionsToBackup = ["wallets", "non_eligible"]; // Solo le collezioni rilevanti per i test
-    let backupData = {};
-
-    for (const collectionName of collectionsToBackup) {
-      const collection = mongoose.connection.db.collection(collectionName);
-      const documents = await collection.find({}).toArray();
-      backupData[collectionName] = documents;
-    }
-
-    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
-    console.log("✅ Backup completed.");
+    await axios.post(REMOTE_BACKUP_URL, backupPayload, {
+      headers: { "Content-Type": "application/json" },
+    });
+    console.log("✅ Remote backup completed.");
   } catch (error) {
-    console.error("❌ Backup failed:", error);
-  } finally {
-    await mongoose.disconnect();
+    console.error("❌ Remote backup failed:", error.message);
   }
 }
 
 module.exports = async () => {
   console.log("🔄 Connecting to test database...");
+  await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
   await backupDatabase();
 };

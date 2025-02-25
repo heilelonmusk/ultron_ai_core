@@ -29,7 +29,7 @@ async function backupDatabase() {
 
   try {
     if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(process.env.MONGO_URI, {});
+      await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
     }
 
     const collectionsToBackup = ["wallets", "non_eligible"];
@@ -41,8 +41,13 @@ async function backupDatabase() {
       backupData[collectionName] = documents;
     }
 
-    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
-    console.log("✅ Database backup completed.");
+    // ✅ Verifica che il backup non sia vuoto prima di salvarlo
+    if (Object.values(backupData).some((docs) => docs.length > 0)) {
+      fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
+      console.log("✅ Database backup completed.");
+    } else {
+      console.warn("⚠️ No relevant data found for backup, skipping.");
+    }
   } catch (error) {
     console.error("❌ Database backup failed:", error);
   }
@@ -53,7 +58,7 @@ async function restoreDatabase() {
 
   try {
     if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(process.env.MONGO_URI, {});
+      await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
     }
 
     if (!fs.existsSync(backupPath)) {
@@ -65,8 +70,14 @@ async function restoreDatabase() {
 
     for (const collectionName in backupData) {
       const collection = mongoose.connection.db.collection(collectionName);
-      await collection.deleteMany({});
-      await collection.insertMany(backupData[collectionName]);
+
+      // ✅ Evita di cancellare dati reali se il backup è vuoto o incompleto
+      if (backupData[collectionName].length > 0) {
+        await collection.deleteMany({});
+        await collection.insertMany(backupData[collectionName]);
+      } else {
+        console.warn(`⚠️ Skipping restore for empty collection: ${collectionName}`);
+      }
     }
 
     console.log("✅ Database restore completed.");
