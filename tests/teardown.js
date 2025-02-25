@@ -4,7 +4,7 @@ const path = require("path");
 const axios = require("axios");
 
 const backupPath = path.join(__dirname, "backup.json");
-const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://your-server.com/api/backup";
+const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://github.com/heilelonmusk/ultron_ai_core/backup";
 
 // Funzione per ripristinare il database dal backup senza alterare dati esterni ai test
 async function restoreDatabase() {

@@ -29,7 +29,7 @@ async function backupDatabase() {
 
   try {
     if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
+      await mongoose.connect(process.env.MONGO_URI, {});
     }
 
     const collectionsToBackup = ["wallets", "non_eligible"];
@@ -58,7 +58,7 @@ async function restoreDatabase() {
 
   try {
     if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
+      await mongoose.connect(process.env.MONGO_URI, {});
     }
 
     if (!fs.existsSync(backupPath)) {
@@ -94,7 +94,7 @@ async function startTestServer() {
   await backupDatabase();
 
   if (mongoose.connection.readyState !== 1) {
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
+    await mongoose.connect(process.env.MONGO_URI, {});
   }
 
   console.log("✅ MongoDB connected.");

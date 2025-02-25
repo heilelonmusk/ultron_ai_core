@@ -50,7 +50,7 @@ async function backupDatabase() {
 module.exports = async () => {
   console.log("🔄 Connecting to test database...");
   try {
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {
+    await mongoose.connect(process.env.MONGO_URI, {
     });
 
     console.log("✅ MongoDB connection established.");
