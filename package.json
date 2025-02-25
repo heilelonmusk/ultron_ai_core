@@ -18,6 +18,7 @@
     "globalTeardown": "./tests/teardown.js"
   },
   "dependencies": {
+    "axios": "^1.7.9",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
