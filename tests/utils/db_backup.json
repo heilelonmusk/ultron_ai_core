@@ -1,0 +1,13 @@
+{
+  "wallets": [
+    {
+      "_id": "67be4ccb0db715a61fdc7d02",
+      "address": "dym98765",
+      "__v": 0,
+      "checkedAt": "2025-02-25T23:05:47.897Z",
+      "importedAt": "2025-02-25T23:05:47.842Z",
+      "status": "eligible"
+    }
+  ],
+  "non_eligible": []
+}
