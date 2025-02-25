@@ -4,7 +4,7 @@ const path = require("path");
 const axios = require("axios");
 
 const backupPath = path.join(__dirname, "backup.json");
-const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://your-server.com/api/backup";
+const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://github.com/heilelonmusk/ultron_ai_core/backup";
 
 /**
  * 📥 Backup Database: Salva i dati della collezione "wallets"
@@ -51,8 +51,6 @@ module.exports = async () => {
   console.log("🔄 Connecting to test database...");
   try {
     await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
     });
 
     console.log("✅ MongoDB connection established.");
