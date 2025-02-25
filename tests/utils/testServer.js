@@ -22,75 +22,71 @@ app.get("/health", (req, res) => {
 app.use("/api/wallet", walletRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 
-let server;
-const backupPath = path.join(__dirname, "backup.json");
+const backupPath = path.join(__dirname, "db_backup.json");
 
 async function backupDatabase() {
   console.log("📥 Backing up database...");
-  if (mongoose.connection.readyState !== 1) {
-    console.log("⚠️ MongoDB connection is not open. Skipping backup.");
-    return;
-  }
 
   try {
-    const collections = await mongoose.connection.db.collections();
-    let backup = {};
-
-    for (let collection of collections) {
-      const data = await collection.find({}).toArray();
-      backup[collection.collectionName] = data;
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI, {});
     }
 
-    fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2), "utf-8");
+    const collectionsToBackup = ["wallets", "non_eligible"];
+    let backupData = {};
+
+    for (const collectionName of collectionsToBackup) {
+      const collection = mongoose.connection.db.collection(collectionName);
+      const documents = await collection.find({}).toArray();
+      backupData[collectionName] = documents;
+    }
+
+    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
     console.log("✅ Database backup completed.");
   } catch (error) {
-    console.error("❌ Error during database backup:", error);
+    console.error("❌ Database backup failed:", error);
   }
 }
 
 async function restoreDatabase() {
   console.log("🔄 Restoring database...");
 
-  if (!fs.existsSync(backupPath)) {
-    console.log("⚠️ No backup file found. Skipping restore.");
-    return;
-  }
-
-  if (mongoose.connection.readyState !== 1) {
-    console.log("🔄 Reconnecting to MongoDB for restore...");
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
-  }
-
   try {
-    const backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
-    const collections = await mongoose.connection.db.collections();
-
-    for (let collection of collections) {
-      const collectionName = collection.collectionName;
-      if (backupData[collectionName] && backupData[collectionName].length > 0) {
-        await collection.deleteMany({});
-        await collection.insertMany(backupData[collectionName]);
-      } else {
-        console.log(`⚠️ Skipping restore for empty collection: ${collectionName}`);
-      }
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI, {});
     }
 
-    fs.unlinkSync(backupPath);
+    if (!fs.existsSync(backupPath)) {
+      console.warn("⚠️ No backup found, skipping restore.");
+      return;
+    }
+
+    const backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
+
+    for (const collectionName in backupData) {
+      const collection = mongoose.connection.db.collection(collectionName);
+      await collection.deleteMany({});
+      await collection.insertMany(backupData[collectionName]);
+    }
+
     console.log("✅ Database restore completed.");
   } catch (error) {
-    console.error("❌ Error during database restore:", error);
+    console.error("❌ Database restore failed:", error);
   }
 }
 
+let server;
+
 async function startTestServer() {
   console.log("🔄 Establishing fresh MongoDB connection...");
+
+  await backupDatabase();
 
   if (mongoose.connection.readyState !== 1) {
     await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {});
   }
 
   console.log("✅ MongoDB connected.");
-  await backupDatabase();
 
   return new Promise((resolve) => {
     server = app.listen(0, () => {
@@ -101,15 +97,18 @@ async function startTestServer() {
 }
 
 async function closeTestServer() {
+  console.log("🛑 Closing test server...");
+  
   if (server) {
-    await restoreDatabase();
-
     return new Promise((resolve, reject) => {
-      server.close((err) => {
+      server.close(async (err) => {
         if (err) {
           console.error("❌ Error closing test server:", err);
           return reject(err);
         }
+
+        console.log("🔄 Restoring database...");
+        await restoreDatabase();
         console.log("✅ Test Server closed.");
         resolve();
       });
