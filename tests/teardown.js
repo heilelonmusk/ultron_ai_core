@@ -1,6 +1,6 @@
-const { closeServer } = require("./testServer");
+const { disconnectMongoDB } = require("../config/connectMongoDB");
 
-afterAll(async () => {
-  console.log("🛑 Closing test server...");
-  await closeServer();
-});
+module.exports = async () => {
+  console.log("🛑 Running global teardown: Closing MongoDB...");
+  await disconnectMongoDB();
+};
