@@ -17,8 +17,6 @@ describe("🛠️ API /wallet Routes", () => {
         // Assicura che MongoDB sia connesso prima di iniziare i test
         if (mongoose.connection.readyState === 0) {
             await mongoose.connect(process.env.MONGO_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
             });
         }
     }, 30000);
@@ -32,7 +30,7 @@ describe("🛠️ API /wallet Routes", () => {
     beforeEach(async () => {
         try {
             await Wallet.deleteMany({});
-            console.log("🗑️ Wallet collection cleared.");
+           console.log("🗑️ Wallet collection cleared.");
         } catch (error) {
             console.error("❌ Error clearing Wallet collection:", error);
         }
