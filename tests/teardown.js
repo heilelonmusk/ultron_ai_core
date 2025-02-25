@@ -6,7 +6,7 @@ const axios = require("axios");
 const backupPath = path.join(__dirname, "backup.json");
 const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://your-server.com/api/backup";
 
-// Funzione per ripristinare il database dal backup remoto
+// Funzione per ripristinare il database dal backup senza alterare dati esterni ai test
 async function restoreDatabase() {
   console.log("🔄 Restoring database...");
 
@@ -15,10 +15,11 @@ async function restoreDatabase() {
     return;
   }
 
-  let backupData;
+  let backupData = {};
 
   // Prova a recuperare il backup remoto
   try {
+    console.log("🌐 Fetching remote backup...");
     const response = await axios.get(REMOTE_BACKUP_URL);
     backupData = response.data;
     console.log("✅ Remote backup retrieved.");
@@ -26,26 +27,44 @@ async function restoreDatabase() {
     console.warn("⚠️ Failed to retrieve remote backup, falling back to local file.");
     
     if (fs.existsSync(backupPath)) {
-      backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
+      try {
+        backupData = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
+        console.log("📁 Local backup loaded.");
+      } catch (err) {
+        console.error("❌ Error reading local backup:", err);
+        return;
+      }
     } else {
       console.warn("⚠️ No backup file found. Skipping restore.");
       return;
     }
   }
 
-  const collection = mongoose.connection.db.collection("wallets");
+  // Ripristino selettivo delle collezioni
+  const collectionsToRestore = ["wallets"];
 
-  if (backupData?.wallets?.length) {
-    await collection.deleteMany({});
-    await collection.insertMany(backupData.wallets);
-    console.log("✅ Database restore completed.");
-  } else {
-    console.warn("⚠️ No wallet data found in backup.");
+  for (const collectionName of collectionsToRestore) {
+    const collection = mongoose.connection.db.collection(collectionName);
+
+    if (backupData[collectionName] && Array.isArray(backupData[collectionName]) && backupData[collectionName].length) {
+      console.log(`🔄 Restoring collection: ${collectionName}...`);
+
+      await collection.deleteMany({});
+      await collection.insertMany(backupData[collectionName]);
+
+      console.log(`✅ ${collectionName} restore completed.`);
+    } else {
+      console.warn(`⚠️ No valid data found for collection: ${collectionName}. Skipping.`);
+    }
   }
 }
 
 module.exports = async () => {
-  await restoreDatabase();
-  await mongoose.connection.close();
-  console.log("🛑 Test database connection closed.");
+  try {
+    await restoreDatabase();
+    await mongoose.connection.close();
+    console.log("🛑 Test database connection closed.");
+  } catch (error) {
+    console.error("❌ Error during teardown process:", error);
+  }
 };
