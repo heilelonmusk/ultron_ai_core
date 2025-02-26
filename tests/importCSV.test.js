@@ -16,18 +16,22 @@ describe("CSV Import Functionality", () => {
         const collections = await mongoose.connection.db.collections();
         for (let collection of collections) {
             const collectionName = collection.collectionName;
-            backupData[collectionName] = await collection.find({}).toArray();
+            const documents = await collection.find({}).toArray();
+            if (documents.length > 0) {
+                backupData[collectionName] = documents;
+            }
         }
     });
 
     afterAll(async () => {
         console.log("🔄 Restoring original database state...");
-
         const collections = await mongoose.connection.db.collections();
         for (let collection of collections) {
             const collectionName = collection.collectionName;
-            await collection.deleteMany({});
+
+            // Cancella solo le collezioni che sono state effettivamente alterate durante i test
             if (backupData[collectionName]) {
+                await collection.deleteMany({});
                 await collection.insertMany(backupData[collectionName]);
             }
         }
@@ -53,11 +57,16 @@ describe("CSV Import Functionality", () => {
 
     test("Should ignore invalid wallet addresses", async () => {
         const invalidCSV = "./database/invalid_wallets.csv";
+
+        if (!fs.existsSync(invalidCSV)) {
+            fs.writeFileSync(invalidCSV, "invalid_wallet\nwrong_wallet_format"); // Crea un file di test temporaneo
+        }
+
         await importCSV(invalidCSV, "eligible");
 
         const wallets = await Wallet.find({ status: "eligible" });
         expect(wallets.length).toBe(0);
 
-        fs.unlinkSync(invalidCSV); // Pulisce il file di test
+        fs.unlinkSync(invalidCSV); // Pulisce il file di test dopo l'esecuzione
     });
 });

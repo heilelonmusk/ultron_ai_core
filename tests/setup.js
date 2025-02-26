@@ -4,11 +4,11 @@ const path = require("path");
 const axios = require("axios");
 
 const backupPath = path.join(__dirname, "backup.json");
-const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || null;
+const REMOTE_BACKUP_URL = process.env.REMOTE_BACKUP_URL || "https://your-server.com/api/backup";
 
 /**
- * 📥 Backup Database: Salva i dati solo delle collezioni pertinenti ai test,
- * evitando di toccare i dati globali del database.
+ * 📥 Backup Database: Salva i dati della collezione "wallets"
+ * sia in locale che, opzionalmente, su un server remoto.
  */
 async function backupDatabase() {
   console.log("📥 Backing up database...");
@@ -19,17 +19,12 @@ async function backupDatabase() {
   }
 
   try {
-    // 🔄 Collezioni usate nei test (da espandere in futuro)
-    const collectionsToBackup = ["wallets", "eligibility_check", "non_eligible_wallets"]; 
-    let backupPayload = {};
+    const collection = mongoose.connection.db.collection("wallets");
+    const backupData = await collection.find({}).toArray();
 
-    for (const collectionName of collectionsToBackup) {
-      const collection = mongoose.connection.db.collection(collectionName);
-      const data = await collection.find({}).toArray();
-      backupPayload[collectionName] = data;
-    }
+    const backupPayload = { wallets: backupData };
 
-    // Salva backup in locale
+    // Salva il backup in locale
     fs.writeFileSync(backupPath, JSON.stringify(backupPayload, null, 2), "utf-8");
     console.log("✅ Local backup saved.");
 
@@ -55,7 +50,10 @@ async function backupDatabase() {
 module.exports = async () => {
   console.log("🔄 Connecting to test database...");
   try {
-    await mongoose.connect(process.env.MONGO_URI, {});
+    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/testdb", {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
 
     console.log("✅ MongoDB connection established.");
     await backupDatabase();

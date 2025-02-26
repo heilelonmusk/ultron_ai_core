@@ -27,8 +27,9 @@ const importCSV = async (filePath, status) => {
           }
 
           const importedAt = row.importedAt && !isNaN(Date.parse(row.importedAt))
-          ? new Date(row.importedAt)
-          : new Date();
+            ? new Date(row.importedAt)
+            : new Date();
+          
           wallets.set(row.address.trim(), { status, importedAt });
         })
         .on("end", async () => {
